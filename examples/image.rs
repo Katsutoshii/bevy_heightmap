@@ -4,13 +4,8 @@ use bevy::prelude::*;
 use bevy_heightmap::*;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
-#[derive(Component, Default)]
-struct Terrain {}
-impl Terrain {
-    fn update() {}
-}
-
 pub const SCALE: f32 = 1024.;
+pub const HEIGHT: f32 = 32.;
 pub const THETA: f32 = PI / 8.;
 pub const FOV: f32 = PI / 4.;
 pub fn y_offset(z: f32) -> f32 {
@@ -24,11 +19,9 @@ fn setup(
     mut commands: Commands,
 ) {
     let texture: Handle<Image> = asset_server.load("textures/uv.png");
-    let h = |p: Vec2| ((p.x * 10.).sin() + (p.y * 10.).sin()) / 50.;
-    let mesh = meshes.add(MeshBuilder::grid_mesh(UVec2 { x: 32, y: 32 }, h).build());
+    let mesh: Handle<Mesh> = asset_server.load("textures/terrain.hmp.png");
     commands.spawn((
         Name::new("Terrain"),
-        Terrain::default(),
         PbrBundle {
             mesh,
             material: materials.add(StandardMaterial {
@@ -37,7 +30,7 @@ fn setup(
                 ..default()
             }),
             transform: Transform {
-                scale: SCALE * Vec3::ONE,
+                scale: Vec2::splat(SCALE).extend(HEIGHT),
                 ..default()
             },
             ..default()
@@ -106,8 +99,11 @@ fn setup(
 
 fn main() {
     let mut app = App::new();
-    app.add_plugins((DefaultPlugins, WorldInspectorPlugin::default()))
-        .add_systems(Startup, setup)
-        .add_systems(Update, Terrain::update)
-        .run();
+    app.add_plugins((
+        DefaultPlugins,
+        HeightMapPlugin,
+        WorldInspectorPlugin::default(),
+    ))
+    .add_systems(Startup, setup)
+    .run();
 }

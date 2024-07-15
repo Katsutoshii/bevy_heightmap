@@ -1,15 +1,30 @@
 [package]
+edition = "2021"
 name = "bevy_heightmap"
 version = "0.1.0"
-edition = "2021"
+authors = ["Josiah Putman <joshikatsu@gmail.com>"]
+description = "Create meshes from heightmap PNGs in the Bevy game engine."
+documentation = "https://docs.rs/bevy_bundletree/latest/bevy_heightmap"
+license = "MIT OR Apache-2.0"
+homepage = "https://github.com/Katsutoshii/bevy_heightmap"
+repository = "https://github.com/Katsutoshii/bevy_heightmap"
+keywords = [
+    "bevy"
+]
+readme = "README.md"
 
 [dependencies]
 bevy = "0.13"
-image = "0.25.1"
+image = "0.24"
 bevy-inspector-egui = "0.24"
+serde = "1.0.204"
+thiserror = "1.0.62"
 
 [[example]]
-name = "basic"
+name = "image"
+
+[[example]]
+name = "value_function"
 
 [[example]]
 name = "export_heightmap"
