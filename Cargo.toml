@@ -12,12 +12,11 @@ keywords = [
     "bevy"
 ]
 readme = "README.md"
-exclude = ["./assets/*"]
+exclude = ["assets/*"]
 
 [dependencies]
 bevy = "0.13"
 image = "0.24"
-serde = "1.0.204"
 thiserror = "1.0.62"
 
 [dev-dependencies]
