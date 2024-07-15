@@ -1,0 +1,15 @@
+[package]
+name = "bevy_heightmap"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+bevy = "0.13"
+image = "0.25.1"
+bevy-inspector-egui = "0.24"
+
+[[example]]
+name = "basic"
+
+[[example]]
+name = "export_heightmap"
