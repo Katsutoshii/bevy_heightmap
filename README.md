@@ -6,6 +6,9 @@
 [![Docs](https://docs.rs/bevy_heightmap/badge.svg)](https://docs.rs/bevy_heightmap/latest/bevy_heightmap/)
 
 Load height map PNGs as meshes in `bevy`.
+| Height map                           | Generated                          |
+|--------------------------------------|----------------------------------------|
+|![example_image](docs/terrain.hmp.png)|![example_image](docs/example_image.png)|
 
 ## Usage
 
@@ -31,6 +34,7 @@ fn setup(asset_server: Res<AssetServer>) {
     let mesh: Handle<Mesh> = asset_server.load("textures/terrain.hmp.png");
 }
 ```
+
 
 ## Examples
 
