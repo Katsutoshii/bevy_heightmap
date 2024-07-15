@@ -37,3 +37,10 @@ fn setup(asset_server: Res<AssetServer>) {
 ```
 cargo run --example image
 ```
+
+## Bevy support table
+
+| bevy | bevy_heightmap |
+| ---- | -------------- |
+| 0.14 | 0.2.0          |   
+| 0.13 | 0.1.0          |   

@@ -3,7 +3,8 @@ use bevy::ecs::prelude::{FromWorld, World};
 use bevy::prelude::*;
 use bevy::render::renderer::RenderDevice;
 use bevy::render::texture::{
-    CompressedImageFormats, Image, ImageFormatSetting, ImageLoaderSettings, ImageType, TextureError,
+    CompressedImageFormats, Image, ImageFormat, ImageFormatSetting, ImageLoaderSettings, ImageType,
+    TextureError,
 };
 
 use image::DynamicImage;
@@ -24,51 +25,62 @@ impl AssetLoader for HeightMapLoader {
     type Asset = Mesh;
     type Settings = ImageLoaderSettings;
     type Error = HeightMapLoaderError;
-    fn load<'a>(
+    async fn load<'a>(
         &'a self,
-        reader: &'a mut Reader,
+        reader: &'a mut Reader<'_>,
         settings: &'a ImageLoaderSettings,
-        load_context: &'a mut LoadContext,
-    ) -> bevy::utils::BoxedFuture<'a, Result<Mesh, Self::Error>> {
-        Box::pin(async move {
-            // use the file extension for the image type
-            let ext = load_context.path().extension().unwrap().to_str().unwrap();
-
-            let mut bytes = Vec::new();
-            reader.read_to_end(&mut bytes).await?;
-            let image_type = match settings.format {
-                ImageFormatSetting::FromExtension => ImageType::Extension(ext),
-                ImageFormatSetting::Format(format) => ImageType::Format(format),
-            };
-            let image: Image = Image::from_buffer(
-                &bytes,
-                image_type,
-                self.supported_compressed_formats,
-                settings.is_srgb,
-                settings.sampler.clone(),
-                settings.asset_usage,
-            )
-            .map_err(|err| HeightMapFileError {
-                error: err,
-                path: format!("{}", load_context.path().display()),
-            })?;
-            let size = image.size();
-            let pixel_scale = (size - UVec2::ONE).as_vec2();
-            if let Ok(DynamicImage::ImageRgba8(rgba)) = image.clone().try_into_dynamic() {
-                let h = |p: Vec2| -> f32 {
-                    let xy = (pixel_scale * (p + Vec2::ONE / 2.)).as_uvec2();
-                    rgba.get_pixel(xy.x, xy.y)[0] as f32 / 255.
-                };
-                // let h = |p: Vec2| ((p.x * 10.).sin() + (p.y * 10.).sin()) / 2.;
-
-                Ok(HeightMap { size, h }.into())
-            } else {
-                error!("Invalid image type. Generating empty plane...");
-                Ok(Mesh::from(Rectangle {
-                    half_size: Vec2::ONE,
-                }))
+        load_context: &'a mut LoadContext<'_>,
+    ) -> Result<Mesh, Self::Error> {
+        let mut bytes = Vec::new();
+        reader.read_to_end(&mut bytes).await?;
+        let image_type = match settings.format {
+            ImageFormatSetting::FromExtension => {
+                // use the file extension for the image type
+                let ext = load_context.path().extension().unwrap().to_str().unwrap();
+                ImageType::Extension(ext)
             }
-        })
+            ImageFormatSetting::Format(format) => ImageType::Format(format),
+            ImageFormatSetting::Guess => {
+                let format = image::guess_format(&bytes).map_err(|err| HeightMapFileError {
+                    error: err.into(),
+                    path: format!("{}", load_context.path().display()),
+                })?;
+                ImageType::Format(ImageFormat::from_image_crate_format(format).ok_or_else(
+                    || HeightMapFileError {
+                        error: TextureError::UnsupportedTextureFormat(format!("{format:?}")),
+                        path: format!("{}", load_context.path().display()),
+                    },
+                )?)
+            }
+        };
+        let image: Image = Image::from_buffer(
+            &bytes,
+            image_type,
+            self.supported_compressed_formats,
+            settings.is_srgb,
+            settings.sampler.clone(),
+            settings.asset_usage,
+        )
+        .map_err(|err| HeightMapFileError {
+            error: err,
+            path: format!("{}", load_context.path().display()),
+        })?;
+        let size = image.size();
+        let pixel_scale = (size - UVec2::ONE).as_vec2();
+        if let Ok(DynamicImage::ImageRgba8(rgba)) = image.clone().try_into_dynamic() {
+            let h = |p: Vec2| -> f32 {
+                let xy = (pixel_scale * (p + Vec2::ONE / 2.)).as_uvec2();
+                rgba.get_pixel(xy.x, xy.y)[0] as f32 / 255.
+            };
+            // let h = |p: Vec2| ((p.x * 10.).sin() + (p.y * 10.).sin()) / 2.;
+
+            Ok(HeightMap { size, h }.into())
+        } else {
+            error!("Invalid image type. Generating empty plane...");
+            Ok(Mesh::from(Rectangle {
+                half_size: Vec2::ONE,
+            }))
+        }
     }
 
     fn extensions(&self) -> &[&str] {

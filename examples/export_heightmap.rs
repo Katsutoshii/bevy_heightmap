@@ -1,6 +1,10 @@
 use std::f32::consts::PI;
 
-use bevy::{prelude::*, tasks::IoTaskPool};
+use bevy::{
+    color::palettes::css::{GRAY, WHITE},
+    prelude::*,
+    tasks::IoTaskPool,
+};
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
 use image::{Rgb, RgbImage};
@@ -117,7 +121,7 @@ fn setup(
                 half_size: Vec3::ONE * 0.5,
             }),
             material: materials.add(StandardMaterial {
-                base_color: Color::DARK_GRAY,
+                base_color: GRAY.into(),
                 ..default()
             }),
             transform: Transform {
@@ -145,7 +149,7 @@ fn setup(
         transform: Transform::from_xyz(0.0, 0.0, default_height)
             .with_rotation(Quat::from_axis_angle(Vec3::ONE, -PI / 6.)),
         directional_light: DirectionalLight {
-            color: Color::ANTIQUE_WHITE,
+            color: WHITE.into(),
             illuminance: 4500.,
             shadows_enabled: true,
             ..default()
