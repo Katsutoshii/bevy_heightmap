@@ -66,14 +66,13 @@ impl AssetLoader for HeightMapLoader {
             path: format!("{}", load_context.path().display()),
         })?;
         let size = image.size();
-        let pixel_scale = (size - UVec2::ONE).as_vec2();
+        let bounds = size - UVec2::ONE;
+        let pixel_scale = bounds.as_vec2();
         if let Ok(DynamicImage::ImageRgba8(rgba)) = image.clone().try_into_dynamic() {
             let h = |p: Vec2| -> f32 {
                 let xy = (pixel_scale * (p + Vec2::ONE / 2.)).as_uvec2();
-                rgba.get_pixel(xy.x, xy.y)[0] as f32 / 255.
+                rgba.get_pixel(xy.x, bounds.y - xy.y)[0] as f32 / 255.
             };
-            // let h = |p: Vec2| ((p.x * 10.).sin() + (p.y * 10.).sin()) / 2.;
-
             Ok(HeightMap { size, h }.into())
         } else {
             error!("Invalid image type. Generating empty plane...");
