@@ -1,7 +1,7 @@
 [package]
 edition = "2021"
 name = "bevy_heightmap"
-version = "0.2.2"
+version = "0.2.3"
 authors = ["Josiah Putman <joshikatsu@gmail.com>"]
 description = "Create meshes from heightmap PNGs in the Bevy game engine."
 documentation = "https://docs.rs/bevy_heightmap/latest/bevy_heightmap"
