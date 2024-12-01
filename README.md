@@ -46,5 +46,6 @@ cargo run --example image
 
 | bevy | bevy_heightmap |
 | ---- | -------------- |
+| 0.15 | 0.3.0          |   
 | 0.14 | 0.2.0          |   
 | 0.13 | 0.1.0          |   

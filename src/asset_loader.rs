@@ -1,11 +1,10 @@
-use bevy::asset::{io::Reader, AssetLoader, AsyncReadExt, LoadContext};
+use bevy::asset::{io::Reader, AssetLoader, LoadContext};
 use bevy::ecs::prelude::{FromWorld, World};
+use bevy::image::{
+    CompressedImageFormats, Image, ImageFormat, ImageFormatSetting, ImageLoaderSettings, ImageType,
+};
 use bevy::prelude::*;
 use bevy::render::renderer::RenderDevice;
-use bevy::render::texture::{
-    CompressedImageFormats, Image, ImageFormat, ImageFormatSetting, ImageLoaderSettings, ImageType,
-    TextureError,
-};
 
 use image::DynamicImage;
 use thiserror::Error;
@@ -25,11 +24,11 @@ impl AssetLoader for HeightMapLoader {
     type Asset = Mesh;
     type Settings = ImageLoaderSettings;
     type Error = HeightMapLoaderError;
-    async fn load<'a>(
-        &'a self,
-        reader: &'a mut Reader<'_>,
-        settings: &'a ImageLoaderSettings,
-        load_context: &'a mut LoadContext<'_>,
+    async fn load(
+        &self,
+        reader: &mut dyn Reader,
+        settings: &ImageLoaderSettings,
+        load_context: &mut LoadContext<'_>,
     ) -> Result<Mesh, Self::Error> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;

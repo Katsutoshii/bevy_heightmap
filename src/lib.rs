@@ -16,7 +16,7 @@ use mesh_builder::MeshBuilder;
 ///   h: |p: Vec2| ((20. * p.x).sin() + (20. * p.y).sin()) / 2.
 /// };
 /// let mesh: Mesh = heightmap.into();
-/// assert_eq!(mesh.count_vertices(), 4 * 10 * 10);
+/// assert_eq!(mesh.count_vertices(), 10 * 10);
 /// ```
 pub struct HeightMap<H: Fn(Vec2) -> f32> {
     pub size: UVec2,
