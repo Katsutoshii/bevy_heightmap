@@ -1,10 +1,13 @@
 /// Simple crate for loading a heightmap .png image as a mesh.
 use asset_loader::HeightMapLoader;
-use bevy::prelude::*;
 
 pub mod asset_loader;
 pub mod mesh_builder;
 
+use bevy_app::{App, Plugin};
+use bevy_asset::AssetApp;
+use bevy_math::{UVec2, Vec2};
+use bevy_render::mesh::Mesh;
 use mesh_builder::MeshBuilder;
 
 /// Minimal representation of a rectangular height map.

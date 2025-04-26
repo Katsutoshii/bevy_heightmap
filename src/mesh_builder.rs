@@ -1,9 +1,8 @@
-use bevy::{
-    prelude::*,
-    render::{
-        mesh::Indices, render_asset::RenderAssetUsages,
-        render_resource::PrimitiveTopology::TriangleList,
-    },
+use bevy_math::{UVec2, Vec2};
+use bevy_render::{
+    mesh::{Indices, Mesh},
+    render_asset::RenderAssetUsages,
+    render_resource::PrimitiveTopology::TriangleList,
 };
 
 /// Utility struct for building a mesh.
