@@ -4,6 +4,7 @@ use bevy::{
     color::palettes::css::{GRAY, WHITE},
     prelude::*,
 };
+use bevy_egui::EguiPlugin;
 use bevy_heightmap::*;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
@@ -68,12 +69,12 @@ fn setup(
     let default_height = 1500.;
     commands.spawn((
         Camera3d::default(),
-        PerspectiveProjection {
+        Projection::Perspective(PerspectiveProjection {
             fov: FOV,
             near: 0.1,
             far: 2000.,
             ..default()
-        },
+        }),
         Transform::from_xyz(0.0, -y_offset(default_height), default_height)
             .with_rotation(Quat::from_axis_angle(Vec3::X, THETA)),
     ));
@@ -94,6 +95,9 @@ fn main() {
     app.add_plugins((
         DefaultPlugins,
         HeightMapPlugin,
+        EguiPlugin {
+            enable_multipass_for_primary_context: true,
+        },
         WorldInspectorPlugin::default(),
     ))
     .add_systems(Startup, setup)
