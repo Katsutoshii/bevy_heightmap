@@ -9,12 +9,12 @@ use bevy::{
         gpu_readback::{Readback, ReadbackComplete},
         render_asset::{RenderAssetUsages, RenderAssets},
         render_graph::{self, RenderGraph, RenderLabel},
-        render_resource::{binding_types::texture_storage_2d, *},
+        render_resource::*,
         renderer::{RenderContext, RenderDevice},
         texture::GpuImage,
     },
 };
-use bevy_render::MainWorld;
+use bevy_render::{MainWorld, storage::GpuShaderStorageBuffer, texture::FallbackImage};
 
 /// This example uses a shader source file from the assets subdirectory
 const SHADER_ASSET_PATH: &str = "shaders/gpu_readback.wgsl";
@@ -54,15 +54,30 @@ impl ComputeNodeState {
         // Textures can also be read back from the GPU. Pay careful attention to the format of the
         // texture, as it will affect how the data is interpreted.
         commands.spawn(Readback::texture(image.0.clone())).observe(
-            |trigger: Trigger<ReadbackComplete>| {
+            |trigger: Trigger<ReadbackComplete>, mut commands: Commands| {
                 // You probably want to interpret the data as a color rather than a ShaderType,
                 // but in this case we know the data is a single channel storage texture, so we can
                 // interpret it as a Vec<u32>
                 let data: Vec<u32> = trigger.event().to_shader_type();
                 info!("Image len: {}", data.len());
                 info!("Image {:?}", &data[0..128]);
+                commands.entity(trigger.target()).remove::<Readback>();
             },
         );
+    }
+}
+
+// This is the struct that will be passed to your shader
+#[derive(AsBindGroup, Resource)]
+pub struct ComputeShaderInput {
+    #[storage_texture(0, image_format=Rgba32Uint, access=WriteOnly)]
+    texture: Handle<Image>,
+}
+impl ComputeShaderInput {
+    fn prepare(mut commands: Commands, image: Res<ReadbackImage>) {
+        commands.insert_resource(Self {
+            texture: image.0.clone(),
+        });
     }
 }
 
@@ -82,9 +97,9 @@ impl Plugin for GpuReadbackPlugin {
             .init_resource::<ComputeNodeState>()
             .add_systems(
                 Render,
-                prepare_bind_group
+                (ComputeShaderInput::prepare, GpuBufferBindGroup::prepare)
+                    .chain()
                     .in_set(RenderSet::PrepareBindGroups)
-                    // We don't need to recreate the bind group every frame
                     .run_if(not(resource_exists::<GpuBufferBindGroup>)),
             )
             .add_systems(ExtractSchedule, ComputeNodeState::extract_to_main);
@@ -102,22 +117,17 @@ impl Plugin for GpuReadbackPlugin {
 struct ReadbackImage(Handle<Image>);
 impl FromWorld for ReadbackImage {
     fn from_world(world: &mut World) -> Self {
-        // Create a storage texture with some data
         let size = Extent3d {
             width: BUFFER_LEN as u32,
             height: BUFFER_LEN as u32,
             ..default()
         };
-        // We create an uninitialized image since this texture will only be used for getting data out
-        // of the compute shader, not getting data in, so there's no reason for it to exist on the CPU
         let mut image = Image::new_uninit(
             size,
             TextureDimension::D2,
             TextureFormat::Rgba32Uint,
             RenderAssetUsages::RENDER_WORLD,
         );
-        // We also need to enable the COPY_SRC, as well as STORAGE_BINDING so we can use it in the
-        // compute shader
         image.texture_descriptor.usage |= TextureUsages::COPY_SRC | TextureUsages::STORAGE_BINDING;
         let image = world.add_asset(image);
         Self(image)
@@ -126,21 +136,24 @@ impl FromWorld for ReadbackImage {
 
 #[derive(Resource)]
 struct GpuBufferBindGroup(BindGroup);
-
-fn prepare_bind_group(
-    mut commands: Commands,
-    pipeline: Res<ComputePipeline>,
-    render_device: Res<RenderDevice>,
-    image: Res<ReadbackImage>,
-    images: Res<RenderAssets<GpuImage>>,
-) {
-    let image = images.get(&image.0).unwrap();
-    let bind_group = render_device.create_bind_group(
-        None,
-        &pipeline.layout,
-        &BindGroupEntries::sequential((image.texture_view.into_binding(),)),
-    );
-    commands.insert_resource(GpuBufferBindGroup(bind_group));
+impl GpuBufferBindGroup {
+    fn prepare(
+        mut commands: Commands,
+        pipeline: Res<ComputePipeline>,
+        render_device: Res<RenderDevice>,
+        input: Res<ComputeShaderInput>,
+        images: Res<RenderAssets<GpuImage>>,
+        fallback_images: Res<FallbackImage>,
+        buffers: Res<RenderAssets<GpuShaderStorageBuffer>>,
+    ) -> Result {
+        let bind_group = input.as_bind_group(
+            &pipeline.layout,
+            &render_device,
+            &mut (images, fallback_images, buffers),
+        )?;
+        commands.insert_resource(GpuBufferBindGroup(bind_group.bind_group));
+        Ok(())
+    }
 }
 
 #[derive(Resource)]
@@ -159,16 +172,7 @@ struct ComputePipeline {
 impl FromWorld for ComputePipeline {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
-        let layout = render_device.create_bind_group_layout(
-            None,
-            &BindGroupLayoutEntries::sequential(
-                ShaderStages::COMPUTE,
-                (texture_storage_2d(
-                    TextureFormat::Rgba32Uint,
-                    StorageTextureAccess::WriteOnly,
-                ),),
-            ),
-        );
+        let layout = ComputeShaderInput::bind_group_layout(render_device);
         let shader = world.resource::<ComputeShaderHandle>().0.clone();
         let pipeline_cache = world.resource::<PipelineCache>();
         let pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
