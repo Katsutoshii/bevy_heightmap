@@ -20,6 +20,7 @@ bevy_render = { version = "0.16", default-features = false }
 bevy_asset = { version = "0.16", default-features = false }
 bevy_app = { version = "0.16", default-features = false }
 bevy_log = { version = "0.16", default-features = false }
+bevy_state = { version = "0.16", default-features = false }
 
 image = "0.25"
 thiserror = "2.0"
