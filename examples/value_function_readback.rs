@@ -26,7 +26,9 @@ fn main() {
     app.add_plugins((
         DefaultPlugins,
         ComputeShaderPlugin::<CustomComputeShader>::default(),
-    ));
+    ))
+    .register_type::<ReadbackOnce>()
+    .add_systems(Update, ReadbackOnce::update);
     app.sub_app_mut(RenderApp).add_systems(
         Render,
         (CustomComputeShader::prepare, prepare_buffer)
@@ -67,18 +69,18 @@ fn on_ready(mut commands: Commands, image: Res<ReadbackImage<CustomComputeShader
     // Textures can also be read back from the GPU. Pay careful attention to the format of the
     // texture, as it will affect how the data is interpreted.
     commands
-        .spawn(Readback::texture(image.handle.clone()))
-        .observe(
-            |trigger: Trigger<ReadbackComplete>, mut commands: Commands| {
-                // You probably want to interpret the data as a color rather than a ShaderType,
-                // but in this case we know the data is a single channel storage texture, so we can
-                // interpret it as a Vec<u32>
-                let data: Vec<u32> = trigger.event().to_shader_type();
-                info!("Image len: {}", data.len());
-                info!("Image {:?}", &data[0..128]);
-                commands.entity(trigger.target()).remove::<Readback>();
-            },
-        );
+        .spawn((
+            Readback::texture(image.handle.clone()),
+            ReadbackOnce::default(),
+        ))
+        .observe(|trigger: Trigger<ReadbackComplete>| {
+            // You probably want to interpret the data as a color rather than a ShaderType,
+            // but in this case we know the data is a single channel storage texture, so we can
+            // interpret it as a Vec<u32>
+            let data: Vec<u32> = trigger.event().to_shader_type();
+            info!("Image len: {}", data.len());
+            info!("Image {:?}", &data[0..128]);
+        });
 }
 
 // This is the struct that will be passed to your shader
@@ -98,5 +100,19 @@ impl ComputeShader for CustomComputeShader {
         commands.insert_resource(Self {
             texture: image.handle.clone(),
         });
+    }
+}
+
+#[derive(Component, Reflect, Debug, Default, Copy, Clone)]
+#[reflect(Component)]
+pub struct ReadbackOnce(pub usize);
+impl ReadbackOnce {
+    fn update(mut commands: Commands, mut query: Query<(Entity, &mut ReadbackOnce)>) {
+        for (entity, mut readback_count) in query.iter_mut() {
+            readback_count.0 += 1;
+            if readback_count.0 > 1 {
+                commands.entity(entity).remove::<(ReadbackOnce, Readback)>();
+            }
+        }
     }
 }
