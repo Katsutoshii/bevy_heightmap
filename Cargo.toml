@@ -25,7 +25,7 @@ image = "0.25"
 thiserror = "2.0"
 
 [dev-dependencies]
-bevy = "0.16"
+bevy = { version = "0.16", features = ["file_watcher"] }
 bevy-inspector-egui = "0.31"
 bevy_egui = { version = "0.34", default-features = false }
 
@@ -34,6 +34,12 @@ name = "image"
 
 [[example]]
 name = "value_function"
+
+[[example]]
+name = "value_function_shader"
+
+[[example]]
+name = "value_function_readback"
 
 [[example]]
 name = "export_heightmap"

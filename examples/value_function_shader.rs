@@ -3,6 +3,7 @@ use std::f32::consts::PI;
 use bevy::{
     color::palettes::css::{GRAY, WHITE},
     prelude::*,
+    render::render_resource::{AsBindGroup, ShaderRef},
 };
 use bevy_egui::EguiPlugin;
 use bevy_heightmap::*;
@@ -22,14 +23,41 @@ pub fn y_offset(z: f32) -> f32 {
     THETA.tan() * z
 }
 
+#[derive(Resource)]
+pub struct ShaderMaterialHandle(pub Handle<ShaderMaterial>);
+impl FromWorld for ShaderMaterialHandle {
+    fn from_world(world: &mut World) -> Self {
+        Self(world.add_asset(ShaderMaterial::default()))
+    }
+}
+#[derive(Asset, TypePath, AsBindGroup, Clone)]
+pub struct ShaderMaterial {
+    #[uniform(0)]
+    pub color: LinearRgba,
+}
+impl Default for ShaderMaterial {
+    fn default() -> Self {
+        Self {
+            color: Color::WHITE.into(),
+        }
+    }
+}
+impl Material for ShaderMaterial {
+    fn fragment_shader() -> ShaderRef {
+        "shaders/value_function_shader.wgsl".into()
+    }
+    fn alpha_mode(&self) -> AlphaMode {
+        AlphaMode::Blend
+    }
+}
+
 fn setup(
-    asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut commands: Commands,
+    shader_material: Res<ShaderMaterialHandle>,
 ) {
-    let texture: Handle<Image> = asset_server.load("textures/uv.png");
-    let h = |p: Vec2| ((20. * p.x).sin() + (20. * p.y).sin()) / 2.;
+    let h = |_p: Vec2| 0.0;
     let mesh: Handle<Mesh> = meshes.add(HeightMap {
         size: UVec2::new(128, 128),
         h,
@@ -38,11 +66,7 @@ fn setup(
         Name::new("Terrain"),
         Terrain::default(),
         Mesh3d(mesh),
-        MeshMaterial3d(materials.add(StandardMaterial {
-            base_color: Color::WHITE,
-            base_color_texture: Some(texture),
-            ..default()
-        })),
+        MeshMaterial3d(shader_material.0.clone()),
         Transform {
             scale: Vec2::splat(SCALE).extend(HEIGHT),
             ..default()
@@ -110,7 +134,9 @@ fn main() {
             enable_multipass_for_primary_context: true,
         },
         WorldInspectorPlugin::default(),
+        MaterialPlugin::<ShaderMaterial>::default(),
     ))
+    .init_resource::<ShaderMaterialHandle>()
     .add_systems(Startup, setup)
     .add_systems(Update, Terrain::update)
     .run();
