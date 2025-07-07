@@ -1,17 +1,15 @@
-//! Simple example demonstrating the use of the [`Readback`] component to read back data from the GPU
-//! using both a storage buffer and texture.
-
-use bevy_asset::RenderAssetUsages;
+// Uses GPU readback to get the results from a compute shader.
 use bevy_heightmap::compute_shader::{ComputeNodeState, ComputeShader, ComputeShaderPlugin};
 
 use bevy::{
+    asset::RenderAssetUsages,
     prelude::*,
     render::{
+        extract_resource::ExtractResource,
         gpu_readback::{Readback, ReadbackComplete},
         render_resource::*,
     },
 };
-use bevy_render::extract_resource::ExtractResource;
 
 fn main() {
     let mut app = App::new();
@@ -71,8 +69,8 @@ impl FromWorld for CustomComputeShader {
     }
 }
 impl ComputeShader for CustomComputeShader {
-    fn shader_path() -> &'static str {
-        "shaders/gpu_readback.wgsl"
+    fn compute_shader() -> ShaderRef {
+        "shaders/gpu_readback.wgsl".into()
     }
     fn workgroup_size() -> UVec3 {
         UVec3::new(16, 16, 1)

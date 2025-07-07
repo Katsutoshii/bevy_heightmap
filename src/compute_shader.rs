@@ -18,7 +18,7 @@ use bevy_render::{
     render_graph::{self, RenderGraph, RenderLabel},
     render_resource::{
         AsBindGroup, BindGroup, BindGroupLayout, CachedComputePipelineId, CachedPipelineState,
-        ComputePassDescriptor, ComputePipelineDescriptor, PipelineCache,
+        ComputePassDescriptor, ComputePipelineDescriptor, PipelineCache, ShaderRef,
     },
     renderer::{RenderContext, RenderDevice},
 };
@@ -29,7 +29,7 @@ use bevy_state::{
 use std::{fmt::Debug, marker::PhantomData};
 
 pub trait ComputeShader: AsBindGroup + Clone + Debug + FromWorld + ExtractResource {
-    fn shader_path() -> &'static str;
+    fn compute_shader() -> ShaderRef;
     fn workgroup_size() -> UVec3;
     fn prepare_buffer(
         mut commands: Commands,
@@ -122,7 +122,11 @@ impl<S: ComputeShader> FromWorld for ComputePipeline<S> {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
         let layout = S::bind_group_layout(render_device);
-        let shader = world.load_asset(S::shader_path());
+        let shader = match S::compute_shader() {
+            ShaderRef::Default => panic!("Must define compute_shader."),
+            ShaderRef::Handle(handle) => handle,
+            ShaderRef::Path(path) => world.load_asset(path),
+        };
         let pipeline_cache = world.resource::<PipelineCache>();
         let pipeline = pipeline_cache.queue_compute_pipeline(ComputePipelineDescriptor {
             label: Some("GPU readback compute shader".into()),
@@ -172,7 +176,7 @@ impl<S: ComputeShader> render_graph::Node for ComputeNode<S> {
                         *world.resource_mut::<ComputeNodeState>() = self.state;
                     }
                     CachedPipelineState::Err(err) => {
-                        panic!("Initializing assets/{}:\n{}", S::shader_path(), err)
+                        panic!("Error loading compute shader: \n{err}")
                     }
                     _ => {}
                 }
