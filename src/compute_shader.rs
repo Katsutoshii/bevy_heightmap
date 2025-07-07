@@ -1,19 +1,25 @@
-use bevy_app::{App, Plugin};
+use bevy_app::{App, Plugin, Update};
 use bevy_asset::DirectAssetAccessExt;
 use bevy_ecs::{
+    bundle::Bundle,
     change_detection::DetectChanges,
+    component::{Component, HookContext},
+    entity::Entity,
+    observer::Trigger,
+    query::With,
     resource::Resource,
     schedule::{
         IntoScheduleConfigs,
         common_conditions::{not, resource_exists},
     },
-    system::{Commands, Res, ResMut, StaticSystemParam},
-    world::{FromWorld, World},
+    system::{Commands, Query, Res, ResMut, StaticSystemParam},
+    world::{DeferredWorld, FromWorld, World},
 };
 use bevy_math::UVec3;
 use bevy_render::{
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
     extract_resource::{ExtractResource, ExtractResourcePlugin},
+    gpu_readback::{Readback, ReadbackComplete},
     render_graph::{self, RenderGraph, RenderLabel},
     render_resource::{
         AsBindGroup, BindGroup, BindGroupLayout, CachedComputePipelineId, CachedPipelineState,
@@ -23,7 +29,7 @@ use bevy_render::{
 };
 use bevy_state::{
     app::AppExtStates,
-    state::{NextState, States},
+    state::{NextState, OnEnter, States},
 };
 use std::{
     fmt::Debug,
@@ -46,7 +52,12 @@ impl<S: ComputeShader> Plugin for ComputeShaderPlugin<S> {
     fn build(&self, app: &mut App) {
         app.init_resource::<S>()
             .add_plugins(ExtractResourcePlugin::<S>::default())
-            .init_state::<ComputeNodeState>();
+            .init_state::<ComputeNodeState>()
+            .add_systems(Update, ComputeShaderReadback::<S>::update)
+            .add_systems(
+                OnEnter(ComputeNodeState::Ready),
+                ComputeShaderReadback::<S>::on_shader_ready,
+            );
     }
 
     fn finish(&self, app: &mut App) {
@@ -75,13 +86,70 @@ impl<S: ComputeShader> Plugin for ComputeShaderPlugin<S> {
     }
 }
 
+#[derive(Default)]
+pub enum ReadbackLimit {
+    #[default]
+    Infinite,
+    Finite(usize),
+}
+#[derive(Component)]
+#[component(on_add = ComputeShaderReadback::<S>::on_add )]
+pub struct ComputeShaderReadback<S: ComputeShader> {
+    pub limit: ReadbackLimit,
+    pub count: usize,
+    pub marker: PhantomData<S>,
+}
+impl<S: ComputeShader> Default for ComputeShaderReadback<S> {
+    fn default() -> Self {
+        Self {
+            limit: ReadbackLimit::default(),
+            count: 0,
+            marker: PhantomData,
+        }
+    }
+}
+impl<S: ComputeShader> ComputeShaderReadback<S> {
+    fn on_add(mut world: DeferredWorld, context: HookContext) {
+        world
+            .commands()
+            .entity(context.entity)
+            .observe(S::on_readback);
+    }
+    fn update(
+        mut commands: Commands,
+        mut compute_shader_readbacks: Query<(Entity, &mut Self), With<Readback>>,
+    ) {
+        for (entity, mut compute_shader_readback) in compute_shader_readbacks.iter_mut() {
+            match compute_shader_readback.limit {
+                ReadbackLimit::Finite(limit) => {
+                    compute_shader_readback.count += 1;
+                    if compute_shader_readback.count > limit {
+                        commands.entity(entity).remove::<Readback>();
+                    }
+                }
+                ReadbackLimit::Infinite => {}
+            }
+        }
+    }
+    fn on_shader_ready(
+        mut commands: Commands,
+        compute_shader: Res<S>,
+        mut compute_shader_readbacks: Query<(Entity, &mut Self)>,
+    ) {
+        for (entity, mut compute_shader_readback) in compute_shader_readbacks.iter_mut() {
+            compute_shader_readback.count = 0;
+            commands.entity(entity).insert(compute_shader.readbacks());
+        }
+    }
+}
+
 /// Trait to implement for your custom shader.
 pub trait ComputeShader: AsBindGroup + Clone + Debug + FromWorld + ExtractResource {
     /// Asset path or handle to the shader.
     fn compute_shader() -> ShaderRef;
     /// Workgroup size.
     fn workgroup_size() -> UVec3;
-    /// (Optional) Bind group preparation.
+    /// Optional bind group preparation.
     fn prepare_bind_group(
         mut commands: Commands,
         pipeline: Res<ComputePipeline<Self>>,
@@ -97,6 +165,10 @@ pub trait ComputeShader: AsBindGroup + Clone + Debug + FromWorld + ExtractResour
             _marker: PhantomData,
         });
     }
+    /// Optional readbacks.
+    fn readbacks(&self) -> impl Bundle {}
+    /// Optional processing on readback. Could write back to the CPU buffer, etc.
+    fn on_readback(_trigger: Trigger<ReadbackComplete>, mut _commands: Commands) {}
 }
 
 /// Stores prepared bind group data for the compute shader.

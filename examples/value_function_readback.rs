@@ -1,17 +1,20 @@
 // Uses GPU readback to get the results from a compute shader.
-use bevy_heightmap::compute_shader::{ComputeNodeState, ComputeShader, ComputeShaderPlugin};
+use bevy_heightmap::compute_shader::{
+    ComputeShader, ComputeShaderPlugin, ComputeShaderReadback, ReadbackLimit,
+};
 
 use bevy::{
     asset::RenderAssetUsages,
     prelude::*,
     render::{
         extract_resource::ExtractResource,
-        gpu_readback::{Readback, ReadbackComplete},
+        gpu_readback::Readback,
         render_resource::{
             AsBindGroup, Extent3d, ShaderRef, TextureDimension, TextureFormat, TextureUsages,
         },
     },
 };
+use bevy_render::gpu_readback::ReadbackComplete;
 
 fn main() {
     let mut app = App::new();
@@ -19,29 +22,16 @@ fn main() {
         DefaultPlugins,
         ComputeShaderPlugin::<CustomComputeShader>::default(),
     ))
-    .register_type::<ReadbackOnce>()
-    .add_systems(Update, ReadbackOnce::update)
     .insert_resource(ClearColor(Color::BLACK))
-    .add_systems(OnEnter(ComputeNodeState::Ready), on_ready)
+    .add_systems(Startup, setup)
     .run();
 }
 
-fn on_ready(mut commands: Commands, image: Res<CustomComputeShader>) {
-    // Textures can also be read back from the GPU. Pay careful attention to the format of the
-    // texture, as it will affect how the data is interpreted.
-    commands
-        .spawn((
-            Readback::texture(image.texture.clone()),
-            ReadbackOnce::default(),
-        ))
-        .observe(|trigger: Trigger<ReadbackComplete>| {
-            // You probably want to interpret the data as a color rather than a ShaderType,
-            // but in this case we know the data is a single channel storage texture, so we can
-            // interpret it as a Vec<u32>
-            let data: Vec<u32> = trigger.event().to_shader_type();
-            info!("Image len: {}", data.len());
-            info!("Image {:?}", &data[0..128]);
-        });
+fn setup(mut commands: Commands) {
+    commands.spawn(ComputeShaderReadback::<CustomComputeShader> {
+        limit: ReadbackLimit::Finite(1),
+        ..default()
+    });
 }
 
 // This is the struct that will be passed to your shader
@@ -56,6 +46,14 @@ impl ComputeShader for CustomComputeShader {
     }
     fn workgroup_size() -> UVec3 {
         UVec3::new(16, 16, 1)
+    }
+    fn readbacks(&self) -> impl Bundle {
+        Readback::texture(self.texture.clone())
+    }
+    fn on_readback(trigger: Trigger<ReadbackComplete>, mut _commands: Commands) {
+        let data: Vec<u32> = trigger.event().to_shader_type();
+        info!("Data len: {}", data.len());
+        info!("data[0..128] {:?}", &data[0..128]);
     }
 }
 impl FromWorld for CustomComputeShader {
@@ -75,20 +73,6 @@ impl FromWorld for CustomComputeShader {
         image.texture_descriptor.usage |= TextureUsages::COPY_SRC | TextureUsages::STORAGE_BINDING;
         Self {
             texture: world.add_asset(image),
-        }
-    }
-}
-
-#[derive(Component, Reflect, Debug, Default, Copy, Clone)]
-#[reflect(Component)]
-pub struct ReadbackOnce(pub usize);
-impl ReadbackOnce {
-    fn update(mut commands: Commands, mut query: Query<(Entity, &mut ReadbackOnce)>) {
-        for (entity, mut readback_count) in query.iter_mut() {
-            readback_count.0 += 1;
-            if readback_count.0 > 1 {
-                commands.entity(entity).remove::<(ReadbackOnce, Readback)>();
-            }
         }
     }
 }
