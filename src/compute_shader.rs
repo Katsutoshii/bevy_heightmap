@@ -25,7 +25,11 @@ use bevy_state::{
     app::AppExtStates,
     state::{NextState, States},
 };
-use std::{fmt::Debug, marker::PhantomData};
+use std::{
+    fmt::Debug,
+    hash::{Hash, Hasher},
+    marker::PhantomData,
+};
 
 pub trait ComputeShader: AsBindGroup + Clone + Debug + FromWorld + ExtractResource {
     fn compute_shader() -> ShaderRef;
@@ -101,7 +105,10 @@ impl<S: ComputeShader> Plugin for ComputeShaderPlugin<S> {
         render_app
             .world_mut()
             .resource_mut::<RenderGraph>()
-            .add_node(ComputeNodeLabel, ComputeNode::<S>::default());
+            .add_node(
+                ComputeNodeLabel::<S>::default(),
+                ComputeNode::<S>::default(),
+            );
     }
 }
 
@@ -145,8 +152,26 @@ impl<S: ComputeShader> FromWorld for ComputePipeline<S> {
 }
 
 /// Label to identify the node in the render graph
-#[derive(Debug, Hash, PartialEq, Eq, Clone, RenderLabel)]
-struct ComputeNodeLabel;
+#[derive(Debug, Clone, RenderLabel)]
+struct ComputeNodeLabel<S: ComputeShader> {
+    _marker: PhantomData<S>,
+}
+impl<S: ComputeShader> Default for ComputeNodeLabel<S> {
+    fn default() -> Self {
+        Self {
+            _marker: PhantomData,
+        }
+    }
+}
+impl<S: ComputeShader> PartialEq for ComputeNodeLabel<S> {
+    fn eq(&self, _other: &Self) -> bool {
+        true
+    }
+}
+impl<S: ComputeShader> Eq for ComputeNodeLabel<S> {}
+impl<S: ComputeShader> Hash for ComputeNodeLabel<S> {
+    fn hash<H: Hasher>(&self, _state: &mut H) {}
+}
 
 /// The node that will execute the compute shader
 struct ComputeNode<S: ComputeShader> {
