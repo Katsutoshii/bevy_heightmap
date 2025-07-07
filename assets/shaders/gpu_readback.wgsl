@@ -8,6 +8,6 @@
 fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     let texture_xy = vec2<i32>(i32(global_id.x), i32(global_id.y));
     // let color = vec4<f32>(global_id.x, global_id.y, global_id.z, 1);
-    let color = vec4<u32>(global_id.x, global_id.y, global_id.z, 0);
+    let color = vec4<u32>(global_id.x, global_id.y + 2, global_id.z, 0);
     textureStore(texture, texture_xy, color);
 }

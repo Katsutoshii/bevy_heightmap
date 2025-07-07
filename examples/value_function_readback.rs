@@ -7,7 +7,9 @@ use bevy::{
     render::{
         extract_resource::ExtractResource,
         gpu_readback::{Readback, ReadbackComplete},
-        render_resource::*,
+        render_resource::{
+            AsBindGroup, Extent3d, ShaderRef, TextureDimension, TextureFormat, TextureUsages,
+        },
     },
 };
 
@@ -48,6 +50,14 @@ pub struct CustomComputeShader {
     #[storage_texture(0, image_format=Rgba32Uint, access=WriteOnly)]
     texture: Handle<Image>,
 }
+impl ComputeShader for CustomComputeShader {
+    fn compute_shader() -> ShaderRef {
+        "shaders/gpu_readback.wgsl".into()
+    }
+    fn workgroup_size() -> UVec3 {
+        UVec3::new(16, 16, 1)
+    }
+}
 impl FromWorld for CustomComputeShader {
     fn from_world(world: &mut World) -> Self {
         let workgroup_size = Self::workgroup_size();
@@ -66,14 +76,6 @@ impl FromWorld for CustomComputeShader {
         Self {
             texture: world.add_asset(image),
         }
-    }
-}
-impl ComputeShader for CustomComputeShader {
-    fn compute_shader() -> ShaderRef {
-        "shaders/gpu_readback.wgsl".into()
-    }
-    fn workgroup_size() -> UVec3 {
-        UVec3::new(16, 16, 1)
     }
 }
 

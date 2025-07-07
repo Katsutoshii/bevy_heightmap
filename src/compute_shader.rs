@@ -10,7 +10,6 @@ use bevy_ecs::{
     system::{Commands, Res, ResMut, StaticSystemParam},
     world::{FromWorld, World},
 };
-use bevy_log::info;
 use bevy_math::UVec3;
 use bevy_render::{
     ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
@@ -185,12 +184,18 @@ impl<S: ComputeShader> render_graph::Node for ComputeNode<S> {
                 if let CachedPipelineState::Ok(_) =
                     pipeline_cache.get_compute_pipeline_state(pipeline.pipeline)
                 {
-                    info!("Pipeline ready");
                     self.state = ComputeNodeState::Ready;
                     *world.resource_mut::<ComputeNodeState>() = self.state;
                 }
             }
-            ComputeNodeState::Ready => {}
+            ComputeNodeState::Ready => {
+                if let CachedPipelineState::Creating(_) =
+                    pipeline_cache.get_compute_pipeline_state(pipeline.pipeline)
+                {
+                    self.state = ComputeNodeState::Loading;
+                    *world.resource_mut::<ComputeNodeState>() = self.state;
+                }
+            }
         }
     }
 
