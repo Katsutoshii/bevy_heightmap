@@ -3,9 +3,9 @@
 
 use std::marker::PhantomData;
 
+use bevy_asset::RenderAssetUsages;
 use bevy_heightmap::compute_shader::{
-    ComptueShaderBindGroup, ComputeNodeState, ComputePipeline, ComputeShader, ComputeShaderPlugin,
-    ReadbackImage,
+    ComputeNodeState, ComputePipeline, ComputeShader, ComputeShaderBindGroup, ComputeShaderPlugin,
 };
 
 use bevy::{
@@ -19,7 +19,9 @@ use bevy::{
         texture::GpuImage,
     },
 };
-use bevy_render::{storage::GpuShaderStorageBuffer, texture::FallbackImage};
+use bevy_render::{
+    extract_resource::ExtractResource, storage::GpuShaderStorageBuffer, texture::FallbackImage,
+};
 
 fn main() {
     let mut app = App::new();
@@ -31,11 +33,11 @@ fn main() {
     .add_systems(Update, ReadbackOnce::update);
     app.sub_app_mut(RenderApp).add_systems(
         Render,
-        (CustomComputeShader::prepare, prepare_buffer)
+        (prepare_buffer)
             .chain()
             .in_set(RenderSet::PrepareBindGroups)
             .run_if(not(resource_exists::<
-                ComptueShaderBindGroup<CustomComputeShader>,
+                ComputeShaderBindGroup<CustomComputeShader>,
             >)),
     );
     app.insert_resource(ClearColor(Color::BLACK))
@@ -59,18 +61,18 @@ fn prepare_buffer(
             &mut (images, fallback_images, buffers),
         )
         .unwrap();
-    commands.insert_resource(ComptueShaderBindGroup::<CustomComputeShader> {
+    commands.insert_resource(ComputeShaderBindGroup::<CustomComputeShader> {
         bind_group: bind_group.bind_group,
         _marker: PhantomData,
     });
 }
 
-fn on_ready(mut commands: Commands, image: Res<ReadbackImage<CustomComputeShader>>) {
+fn on_ready(mut commands: Commands, image: Res<CustomComputeShader>) {
     // Textures can also be read back from the GPU. Pay careful attention to the format of the
     // texture, as it will affect how the data is interpreted.
     commands
         .spawn((
-            Readback::texture(image.handle.clone()),
+            Readback::texture(image.texture.clone()),
             ReadbackOnce::default(),
         ))
         .observe(|trigger: Trigger<ReadbackComplete>| {
@@ -84,10 +86,30 @@ fn on_ready(mut commands: Commands, image: Res<ReadbackImage<CustomComputeShader
 }
 
 // This is the struct that will be passed to your shader
-#[derive(AsBindGroup, Resource, Clone, Debug, Default)]
+#[derive(AsBindGroup, Resource, Clone, Debug, ExtractResource)]
 pub struct CustomComputeShader {
     #[storage_texture(0, image_format=Rgba32Uint, access=WriteOnly)]
     texture: Handle<Image>,
+}
+impl FromWorld for CustomComputeShader {
+    fn from_world(world: &mut World) -> Self {
+        let workgroup_size = Self::workgroup_size();
+        let size = Extent3d {
+            width: workgroup_size.x,
+            height: workgroup_size.y,
+            depth_or_array_layers: workgroup_size.z,
+        };
+        let mut image = Image::new_uninit(
+            size,
+            TextureDimension::D2,
+            TextureFormat::Rgba32Uint,
+            RenderAssetUsages::RENDER_WORLD,
+        );
+        image.texture_descriptor.usage |= TextureUsages::COPY_SRC | TextureUsages::STORAGE_BINDING;
+        Self {
+            texture: world.add_asset(image),
+        }
+    }
 }
 impl ComputeShader for CustomComputeShader {
     fn shader_path() -> &'static str {
@@ -95,11 +117,6 @@ impl ComputeShader for CustomComputeShader {
     }
     fn workgroup_size() -> UVec3 {
         UVec3::new(16, 16, 1)
-    }
-    fn prepare(mut commands: Commands, image: Res<ReadbackImage<Self>>) {
-        commands.insert_resource(Self {
-            texture: image.handle.clone(),
-        });
     }
 }
 

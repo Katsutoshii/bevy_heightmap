@@ -1,12 +1,11 @@
 use bevy_app::{App, Plugin};
-use bevy_asset::{DirectAssetAccessExt, Handle, RenderAssetUsages};
+use bevy_asset::DirectAssetAccessExt;
 use bevy_ecs::{
     change_detection::DetectChanges,
     resource::Resource,
-    system::{Commands, Res, ResMut},
+    system::{Res, ResMut},
     world::{FromWorld, World},
 };
-use bevy_image::Image;
 use bevy_log::info;
 use bevy_math::UVec3;
 use bevy_render::{
@@ -15,8 +14,7 @@ use bevy_render::{
     render_graph::{self, RenderGraph, RenderLabel},
     render_resource::{
         AsBindGroup, BindGroup, BindGroupLayout, CachedComputePipelineId, CachedPipelineState,
-        ComputePassDescriptor, ComputePipelineDescriptor, Extent3d, PipelineCache,
-        TextureDimension, TextureFormat, TextureUsages,
+        ComputePassDescriptor, ComputePipelineDescriptor, PipelineCache,
     },
     renderer::{RenderContext, RenderDevice},
 };
@@ -26,10 +24,9 @@ use bevy_state::{
 };
 use std::{fmt::Debug, marker::PhantomData};
 
-pub trait ComputeShader: AsBindGroup + Resource + Clone + Debug {
+pub trait ComputeShader: AsBindGroup + Clone + Debug + FromWorld + ExtractResource {
     fn shader_path() -> &'static str;
     fn workgroup_size() -> UVec3;
-    fn prepare(commands: Commands, image: Res<ReadbackImage<Self>>);
 }
 
 #[derive(Default, States, Resource, PartialEq, Eq, Copy, Clone, Debug, Hash)]
@@ -50,14 +47,20 @@ impl ComputeNodeState {
 }
 
 // We need a plugin to organize all the systems and render node required for this example
-#[derive(Default)]
 pub struct ComputeShaderPlugin<S: ComputeShader> {
     _marker: PhantomData<S>,
 }
+impl<S: ComputeShader> Default for ComputeShaderPlugin<S> {
+    fn default() -> Self {
+        Self {
+            _marker: PhantomData,
+        }
+    }
+}
 impl<S: ComputeShader> Plugin for ComputeShaderPlugin<S> {
     fn build(&self, app: &mut App) {
-        app.init_resource::<ReadbackImage<S>>()
-            .add_plugins(ExtractResourcePlugin::<ReadbackImage<S>>::default())
+        app.init_resource::<S>()
+            .add_plugins(ExtractResourcePlugin::<S>::default())
             .init_state::<ComputeNodeState>();
     }
 
@@ -77,35 +80,8 @@ impl<S: ComputeShader> Plugin for ComputeShaderPlugin<S> {
     }
 }
 
-#[derive(Resource, ExtractResource, Clone)]
-pub struct ReadbackImage<S: ComputeShader> {
-    pub handle: Handle<Image>,
-    _marker: PhantomData<S>,
-}
-impl<S: ComputeShader> FromWorld for ReadbackImage<S> {
-    fn from_world(world: &mut World) -> Self {
-        let workgroup_size = S::workgroup_size();
-        let size = Extent3d {
-            width: workgroup_size.x,
-            height: workgroup_size.y,
-            depth_or_array_layers: workgroup_size.z,
-        };
-        let mut image = Image::new_uninit(
-            size,
-            TextureDimension::D2,
-            TextureFormat::Rgba32Uint,
-            RenderAssetUsages::RENDER_WORLD,
-        );
-        image.texture_descriptor.usage |= TextureUsages::COPY_SRC | TextureUsages::STORAGE_BINDING;
-        Self {
-            handle: world.add_asset(image),
-            _marker: PhantomData,
-        }
-    }
-}
-
 #[derive(Resource)]
-pub struct ComptueShaderBindGroup<S: ComputeShader> {
+pub struct ComputeShaderBindGroup<S: ComputeShader> {
     pub bind_group: BindGroup,
     pub _marker: PhantomData<S>,
 }
@@ -196,7 +172,7 @@ impl<S: ComputeShader> render_graph::Node for ComputeNode<S> {
     ) -> Result<(), render_graph::NodeRunError> {
         let pipeline_cache = world.resource::<PipelineCache>();
         let pipeline = world.resource::<ComputePipeline<S>>();
-        let bind_group = &world.resource::<ComptueShaderBindGroup<S>>().bind_group;
+        let bind_group = &world.resource::<ComputeShaderBindGroup<S>>().bind_group;
 
         if self.state == ComputeNodeState::Ready {
             if let Some(init_pipeline) = pipeline_cache.get_compute_pipeline(pipeline.pipeline) {
