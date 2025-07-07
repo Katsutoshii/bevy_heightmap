@@ -1,27 +1,17 @@
 //! Simple example demonstrating the use of the [`Readback`] component to read back data from the GPU
 //! using both a storage buffer and texture.
 
-use std::marker::PhantomData;
-
 use bevy_asset::RenderAssetUsages;
-use bevy_heightmap::compute_shader::{
-    ComputeNodeState, ComputePipeline, ComputeShader, ComputeShaderBindGroup, ComputeShaderPlugin,
-};
+use bevy_heightmap::compute_shader::{ComputeNodeState, ComputeShader, ComputeShaderPlugin};
 
 use bevy::{
     prelude::*,
     render::{
-        Render, RenderApp, RenderSet,
         gpu_readback::{Readback, ReadbackComplete},
-        render_asset::RenderAssets,
         render_resource::*,
-        renderer::RenderDevice,
-        texture::GpuImage,
     },
 };
-use bevy_render::{
-    extract_resource::ExtractResource, storage::GpuShaderStorageBuffer, texture::FallbackImage,
-};
+use bevy_render::extract_resource::ExtractResource;
 
 fn main() {
     let mut app = App::new();
@@ -30,41 +20,10 @@ fn main() {
         ComputeShaderPlugin::<CustomComputeShader>::default(),
     ))
     .register_type::<ReadbackOnce>()
-    .add_systems(Update, ReadbackOnce::update);
-    app.sub_app_mut(RenderApp).add_systems(
-        Render,
-        (prepare_buffer)
-            .chain()
-            .in_set(RenderSet::PrepareBindGroups)
-            .run_if(not(resource_exists::<
-                ComputeShaderBindGroup<CustomComputeShader>,
-            >)),
-    );
-    app.insert_resource(ClearColor(Color::BLACK))
-        .add_systems(OnEnter(ComputeNodeState::Ready), on_ready)
-        .run();
-}
-
-fn prepare_buffer(
-    mut commands: Commands,
-    pipeline: Res<ComputePipeline<CustomComputeShader>>,
-    render_device: Res<RenderDevice>,
-    input: Res<CustomComputeShader>,
-    images: Res<RenderAssets<GpuImage>>,
-    fallback_images: Res<FallbackImage>,
-    buffers: Res<RenderAssets<GpuShaderStorageBuffer>>,
-) {
-    let bind_group = input
-        .as_bind_group(
-            &pipeline.layout,
-            &render_device,
-            &mut (images, fallback_images, buffers),
-        )
-        .unwrap();
-    commands.insert_resource(ComputeShaderBindGroup::<CustomComputeShader> {
-        bind_group: bind_group.bind_group,
-        _marker: PhantomData,
-    });
+    .add_systems(Update, ReadbackOnce::update)
+    .insert_resource(ClearColor(Color::BLACK))
+    .add_systems(OnEnter(ComputeNodeState::Ready), on_ready)
+    .run();
 }
 
 fn on_ready(mut commands: Commands, image: Res<CustomComputeShader>) {

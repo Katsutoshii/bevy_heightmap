@@ -3,13 +3,17 @@ use bevy_asset::DirectAssetAccessExt;
 use bevy_ecs::{
     change_detection::DetectChanges,
     resource::Resource,
-    system::{Res, ResMut},
+    schedule::{
+        IntoScheduleConfigs,
+        common_conditions::{not, resource_exists},
+    },
+    system::{Commands, Res, ResMut, StaticSystemParam},
     world::{FromWorld, World},
 };
 use bevy_log::info;
 use bevy_math::UVec3;
 use bevy_render::{
-    ExtractSchedule, MainWorld, RenderApp,
+    ExtractSchedule, MainWorld, Render, RenderApp, RenderSet,
     extract_resource::{ExtractResource, ExtractResourcePlugin},
     render_graph::{self, RenderGraph, RenderLabel},
     render_resource::{
@@ -27,6 +31,21 @@ use std::{fmt::Debug, marker::PhantomData};
 pub trait ComputeShader: AsBindGroup + Clone + Debug + FromWorld + ExtractResource {
     fn shader_path() -> &'static str;
     fn workgroup_size() -> UVec3;
+    fn prepare_buffer(
+        mut commands: Commands,
+        pipeline: Res<ComputePipeline<Self>>,
+        render_device: Res<RenderDevice>,
+        input: Res<Self>,
+        param: StaticSystemParam<<Self as AsBindGroup>::Param>,
+    ) {
+        let bind_group = input
+            .as_bind_group(&pipeline.layout, &render_device, &mut param.into_inner())
+            .unwrap();
+        commands.insert_resource(ComputeShaderBindGroup::<Self> {
+            bind_group: bind_group.bind_group,
+            _marker: PhantomData,
+        });
+    }
 }
 
 #[derive(Default, States, Resource, PartialEq, Eq, Copy, Clone, Debug, Hash)]
@@ -69,7 +88,14 @@ impl<S: ComputeShader> Plugin for ComputeShaderPlugin<S> {
         render_app
             .init_resource::<ComputePipeline<S>>()
             .init_resource::<ComputeNodeState>()
-            .add_systems(ExtractSchedule, ComputeNodeState::extract_to_main);
+            .add_systems(ExtractSchedule, ComputeNodeState::extract_to_main)
+            .add_systems(
+                Render,
+                (S::prepare_buffer)
+                    .chain()
+                    .in_set(RenderSet::PrepareBindGroups)
+                    .run_if(not(resource_exists::<ComputeShaderBindGroup<S>>)),
+            );
 
         // Add the compute node as a top level node to the render graph
         // This means it will only execute once per frame
