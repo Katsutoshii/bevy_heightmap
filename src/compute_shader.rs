@@ -31,44 +31,7 @@ use std::{
     marker::PhantomData,
 };
 
-pub trait ComputeShader: AsBindGroup + Clone + Debug + FromWorld + ExtractResource {
-    fn compute_shader() -> ShaderRef;
-    fn workgroup_size() -> UVec3;
-    fn prepare_buffer(
-        mut commands: Commands,
-        pipeline: Res<ComputePipeline<Self>>,
-        render_device: Res<RenderDevice>,
-        input: Res<Self>,
-        param: StaticSystemParam<<Self as AsBindGroup>::Param>,
-    ) {
-        let bind_group = input
-            .as_bind_group(&pipeline.layout, &render_device, &mut param.into_inner())
-            .unwrap();
-        commands.insert_resource(ComputeShaderBindGroup::<Self> {
-            bind_group: bind_group.bind_group,
-            _marker: PhantomData,
-        });
-    }
-}
-
-#[derive(Default, States, Resource, PartialEq, Eq, Copy, Clone, Debug, Hash)]
-pub enum ComputeNodeState {
-    #[default]
-    Loading,
-    Init,
-    Ready,
-}
-impl ComputeNodeState {
-    fn extract_to_main(render_state: Res<ComputeNodeState>, mut world: ResMut<MainWorld>) {
-        if render_state.is_changed() {
-            world
-                .resource_mut::<NextState<ComputeNodeState>>()
-                .set(*render_state);
-        }
-    }
-}
-
-// We need a plugin to organize all the systems and render node required for this example
+/// Plugin to create all the required systems for using a custom compute shader.
 pub struct ComputeShaderPlugin<S: ComputeShader> {
     _marker: PhantomData<S>,
 }
@@ -94,7 +57,7 @@ impl<S: ComputeShader> Plugin for ComputeShaderPlugin<S> {
             .add_systems(ExtractSchedule, ComputeNodeState::extract_to_main)
             .add_systems(
                 Render,
-                (S::prepare_buffer)
+                (S::prepare_bind_group)
                     .chain()
                     .in_set(RenderSet::PrepareBindGroups)
                     .run_if(not(resource_exists::<ComputeShaderBindGroup<S>>)),
@@ -112,12 +75,56 @@ impl<S: ComputeShader> Plugin for ComputeShaderPlugin<S> {
     }
 }
 
+/// Trait to implement for your custom shader.
+pub trait ComputeShader: AsBindGroup + Clone + Debug + FromWorld + ExtractResource {
+    /// Asset path or handle to the shader.
+    fn compute_shader() -> ShaderRef;
+    /// Workgroup size.
+    fn workgroup_size() -> UVec3;
+    /// (Optional) Bind group preparation.
+    fn prepare_bind_group(
+        mut commands: Commands,
+        pipeline: Res<ComputePipeline<Self>>,
+        render_device: Res<RenderDevice>,
+        input: Res<Self>,
+        param: StaticSystemParam<<Self as AsBindGroup>::Param>,
+    ) {
+        let bind_group = input
+            .as_bind_group(&pipeline.layout, &render_device, &mut param.into_inner())
+            .unwrap();
+        commands.insert_resource(ComputeShaderBindGroup::<Self> {
+            bind_group: bind_group.bind_group,
+            _marker: PhantomData,
+        });
+    }
+}
+
+/// Stores prepared bind group data for the compute shader.
 #[derive(Resource)]
 pub struct ComputeShaderBindGroup<S: ComputeShader> {
     pub bind_group: BindGroup,
     pub _marker: PhantomData<S>,
 }
 
+/// Track compute node state.
+#[derive(Default, States, Resource, PartialEq, Eq, Copy, Clone, Debug, Hash)]
+pub enum ComputeNodeState {
+    #[default]
+    Loading,
+    Init,
+    Ready,
+}
+impl ComputeNodeState {
+    fn extract_to_main(render_state: Res<ComputeNodeState>, mut world: ResMut<MainWorld>) {
+        if render_state.is_changed() {
+            world
+                .resource_mut::<NextState<ComputeNodeState>>()
+                .set(*render_state);
+        }
+    }
+}
+
+/// Defines the pipeline for the compute shader.
 #[derive(Resource)]
 pub struct ComputePipeline<S: ComputeShader> {
     pub layout: BindGroupLayout,
@@ -191,7 +198,6 @@ impl<S: ComputeShader> render_graph::Node for ComputeNode<S> {
         let pipeline = world.resource::<ComputePipeline<S>>();
         let pipeline_cache = world.resource::<PipelineCache>();
 
-        // if the corresponding pipeline has loaded, transition to the next stage
         match self.state {
             ComputeNodeState::Loading => {
                 match pipeline_cache.get_compute_pipeline_state(pipeline.pipeline) {
