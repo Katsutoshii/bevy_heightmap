@@ -1,3 +1,4 @@
+use bevy_ecs::world::DeferredWorld;
 // Uses GPU readback to get the results from a compute shader.
 use bevy_heightmap::compute_shader::{
     ComputeShader, ComputeShaderPlugin, ComputeShaderReadback, ReadbackLimit,
@@ -50,10 +51,16 @@ impl ComputeShader for CustomComputeShader {
     fn readbacks(&self) -> impl Bundle {
         Readback::texture(self.texture.clone())
     }
-    fn on_readback(trigger: Trigger<ReadbackComplete>, mut _commands: Commands) {
-        let data: Vec<u32> = trigger.event().to_shader_type();
+    fn on_readback(trigger: Trigger<ReadbackComplete>, mut world: DeferredWorld) {
+        let data: Vec<u8> = trigger.event().0.clone();
         info!("Data len: {}", data.len());
-        info!("data[0..128] {:?}", &data[0..128]);
+        let image_handle = world.resource::<Self>().texture.clone();
+        let mut images = world.resource_mut::<Assets<Image>>();
+        if let Some(image) = images.get_mut(&image_handle) {
+            image.data = Some(data);
+        } else {
+            warn!("Handle not ready: {:?}", image_handle);
+        }
     }
 }
 impl FromWorld for CustomComputeShader {
@@ -64,11 +71,13 @@ impl FromWorld for CustomComputeShader {
             height: workgroup_size.y,
             depth_or_array_layers: workgroup_size.z,
         };
-        let mut image = Image::new_uninit(
+        let empty_pixel: Vec<u8> = vec![0; 8 * 4];
+        let mut image = Image::new_fill(
             size,
             TextureDimension::D2,
+            &empty_pixel,
             TextureFormat::Rgba32Uint,
-            RenderAssetUsages::RENDER_WORLD,
+            RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD,
         );
         image.texture_descriptor.usage |= TextureUsages::COPY_SRC | TextureUsages::STORAGE_BINDING;
         Self {

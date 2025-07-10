@@ -168,7 +168,7 @@ pub trait ComputeShader: AsBindGroup + Clone + Debug + FromWorld + ExtractResour
     /// Optional readbacks.
     fn readbacks(&self) -> impl Bundle {}
     /// Optional processing on readback. Could write back to the CPU buffer, etc.
-    fn on_readback(_trigger: Trigger<ReadbackComplete>, mut _commands: Commands) {}
+    fn on_readback(_trigger: Trigger<ReadbackComplete>, mut _world: DeferredWorld) {}
 }
 
 /// Stores prepared bind group data for the compute shader.
