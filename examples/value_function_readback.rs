@@ -15,7 +15,7 @@ use bevy::{
         },
     },
 };
-use bevy_heightmap::{HeightMap, HeightMapPlugin};
+use bevy_heightmap::{HeightMap, HeightMapPlugin, image::ImageBufferHeightMap};
 use bevy_image::TextureFormatPixelInfo;
 use image::Rgba32FImage;
 
@@ -127,7 +127,7 @@ pub struct NoiseComputeShader {
 }
 impl ComputeShader for NoiseComputeShader {
     fn compute_shader() -> ShaderRef {
-        "shaders/gpu_readback.wgsl".into()
+        "shaders/value_function_readback.wgsl".into()
     }
     fn workgroup_size() -> UVec3 {
         UVec3::new(1024, 1024, 1)
@@ -137,26 +137,17 @@ impl ComputeShader for NoiseComputeShader {
     }
     fn on_readback(trigger: Trigger<ReadbackComplete>, mut world: DeferredWorld) {
         let size = Self::workgroup_size().xy();
-        let bounds = size - UVec2::ONE;
-        let pixel_scale = bounds.as_vec2();
-        let rgba = Rgba32FImage::from_raw(
-            size.x,
-            size.y,
-            bytemuck::cast_slice(&trigger.event().0).to_owned(),
-        )
-        .unwrap();
-        let h = |p: Vec2| -> f32 {
-            let xy = (pixel_scale * (p + Vec2::ONE / 2.)).as_uvec2();
-            rgba.get_pixel(xy.x, bounds.y - xy.y)[0]
-        };
-
+        let rgba = Rgba32FImage::from_bytes(size, &trigger.event().0);
         let mesh_handle = world.resource::<Self>().generated_mesh.clone();
         let mut meshes = world.resource_mut::<Assets<Mesh>>();
         let Some(mesh) = meshes.get_mut(&mesh_handle) else {
-            warn!("Handle not ready: {:?}", mesh_handle);
             return;
         };
-        *mesh = HeightMap { size, h }.into();
+        *mesh = HeightMap {
+            size,
+            h: |p: Vec2| rgba.get_height_value(p),
+        }
+        .into();
     }
 }
 impl FromWorld for NoiseComputeShader {

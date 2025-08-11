@@ -2,6 +2,7 @@
 use asset_loader::HeightMapLoader;
 
 pub mod asset_loader;
+pub mod image;
 pub mod mesh_builder;
 
 use bevy_app::{App, Plugin};
