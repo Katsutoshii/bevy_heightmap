@@ -127,7 +127,7 @@ pub struct NoiseComputeShader {
 }
 impl ComputeShader for NoiseComputeShader {
     fn compute_shader() -> ShaderRef {
-        "shaders/value_function_readback.wgsl".into()
+        "shaders/value_function_shader.wgsl".into()
     }
     fn workgroup_size() -> UVec3 {
         UVec3::new(1024, 1024, 1)
