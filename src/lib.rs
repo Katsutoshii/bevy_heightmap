@@ -11,7 +11,22 @@ use bevy_math::{UVec2, Vec2};
 use bevy_render::mesh::Mesh;
 use mesh_builder::MeshBuilder;
 
-/// Minimal representation of a rectangular height map.
+pub use image::ImageBufferHeightMap;
+
+/// A Heightmap is anything that provides a 2d value function `h()`.
+pub trait HeightMap: Sized {
+    /// Compute the height value at a given point `p``.
+    fn h(&self, p: Vec2) -> f32;
+
+    /// Builds a mesh from the heightmap.
+    fn build_mesh(&self, size: UVec2) -> Mesh {
+        let mut builder = MeshBuilder::grid(size);
+        builder.update_z_positions(self);
+        builder.build()
+    }
+}
+
+/// Height map from value function;
 /// ```
 /// use bevy::prelude::*;
 /// use bevy_heightmap::*;
@@ -22,13 +37,10 @@ use mesh_builder::MeshBuilder;
 /// let mesh: Mesh = heightmap.into();
 /// assert_eq!(mesh.count_vertices(), 10 * 10);
 /// ```
-pub struct HeightMap<H: Fn(Vec2) -> f32> {
-    pub size: UVec2,
-    pub h: H,
-}
-impl<H: Fn(Vec2) -> f32> From<HeightMap<H>> for Mesh {
-    fn from(HeightMap { size, h }: HeightMap<H>) -> Self {
-        MeshBuilder::grid(size, &h).build()
+pub struct ValueFunctionHeightMap<H: Fn(Vec2) -> f32>(pub H);
+impl<H: Fn(Vec2) -> f32> HeightMap for ValueFunctionHeightMap<H> {
+    fn h(&self, p: Vec2) -> f32 {
+        self.0(p)
     }
 }
 

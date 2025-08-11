@@ -1,7 +1,7 @@
 [package]
 edition = "2024"
 name = "bevy_heightmap"
-version = "0.4.1"
+version = "0.5.0"
 authors = ["Josiah Putman <joshikatsu@gmail.com>"]
 description = "Create meshes from heightmap PNGs in the Bevy game engine."
 documentation = "https://docs.rs/bevy_heightmap/latest/bevy_heightmap"
@@ -41,9 +41,6 @@ name = "value_function"
 
 [[example]]
 name = "value_function_shader"
-
-[[example]]
-name = "value_function_readback"
 
 [[example]]
 name = "export_heightmap"

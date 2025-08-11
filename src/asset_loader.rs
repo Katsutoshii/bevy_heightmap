@@ -1,19 +1,17 @@
-use bevy_asset::{io::Reader, AssetLoader, LoadContext};
+use bevy_asset::{AssetLoader, LoadContext, io::Reader};
 use bevy_ecs::prelude::{FromWorld, World};
 use bevy_image::{
     CompressedImageFormats, Image, ImageFormat, ImageFormatSetting, ImageLoaderSettings, ImageType,
-    TextureError,
+    IntoDynamicImageError, TextureError,
 };
 use bevy_log::error;
-use bevy_math::primitives::Rectangle;
-use bevy_math::{UVec2, Vec2};
 use bevy_render::mesh::Mesh;
 use bevy_render::renderer::RenderDevice;
 
-use image::DynamicImage;
 use thiserror::Error;
 
 use crate::HeightMap;
+use crate::image::ImageBufferHeightMap;
 
 /// Loader for images that can be read by the `image` crate.
 #[derive(Clone)]
@@ -68,21 +66,8 @@ impl AssetLoader for HeightMapLoader {
             error: err,
             path: format!("{}", load_context.path().display()),
         })?;
-        let size = image.size();
-        let bounds = size - UVec2::ONE;
-        let pixel_scale = bounds.as_vec2();
-        if let Ok(DynamicImage::ImageRgba8(rgba)) = image.clone().try_into_dynamic() {
-            let h = |p: Vec2| -> f32 {
-                let xy = (pixel_scale * (p + Vec2::ONE / 2.)).as_uvec2();
-                rgba.get_pixel(xy.x, bounds.y - xy.y)[0] as f32 / 255.
-            };
-            Ok(HeightMap { size, h }.into())
-        } else {
-            error!("Invalid image type. Generating empty plane...");
-            Ok(Mesh::from(Rectangle {
-                half_size: Vec2::ONE,
-            }))
-        }
+        let image_heightmap = ImageBufferHeightMap::try_from_image(image.clone())?;
+        Ok(image_heightmap.build_mesh(image.size()))
     }
 
     fn extensions(&self) -> &[&str] {
@@ -126,4 +111,8 @@ pub enum HeightMapLoaderError {
     Io(#[from] std::io::Error),
     #[error("Could not load texture file: {0}")]
     FileTexture(#[from] HeightMapFileError),
+    #[error("Error converting to dynamic image: {0}")]
+    IntoDynamicImageError(#[from] IntoDynamicImageError),
+    #[error("Unsupported image type")]
+    UnsupportedImageType,
 }

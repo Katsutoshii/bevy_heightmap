@@ -5,6 +5,8 @@ use bevy_render::{
     render_resource::PrimitiveTopology::TriangleList,
 };
 
+use crate::HeightMap;
+
 /// Utility struct for building a mesh.
 #[derive(Default)]
 pub struct MeshBuilder {
@@ -36,7 +38,7 @@ impl MeshBuilder {
         ]
     }
     /// Compute a grid mesh of quads according to size.
-    pub fn grid<H: Fn(Vec2) -> f32>(size: UVec2, h: &H) -> Self {
+    pub fn grid(size: UVec2) -> Self {
         let bounds = size - UVec2::ONE;
         let num_points = size.x as usize * size.y as usize;
         let num_quads = bounds.x as usize * bounds.y as usize;
@@ -59,9 +61,15 @@ impl MeshBuilder {
         }
         for p in builder.positions.iter_mut() {
             builder.uvs.push(Self::position_to_uv(p));
-            p[2] = h(Vec2::new(p[0], p[1]));
         }
         builder
+    }
+
+    /// Updates z positions to use the heightmap.
+    pub fn update_z_positions<H: HeightMap>(&mut self, heightmap: &H) {
+        for p in self.positions.iter_mut() {
+            p[2] = heightmap.h(Vec2::new(p[0], p[1]));
+        }
     }
 
     /// Produce a mesh from the accumulated attributes.

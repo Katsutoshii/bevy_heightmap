@@ -1,19 +1,23 @@
 use std::f32::consts::PI;
 
-use bevy::{
-    color::palettes::css::{GRAY, WHITE},
-    prelude::*,
-    render::render_resource::{AsBindGroup, ShaderRef},
-};
-use bevy_egui::EguiPlugin;
-use bevy_heightmap::*;
-use bevy_inspector_egui::quick::WorldInspectorPlugin;
+use bevy_compute_readback::{ComputeShader, ComputeShaderPlugin, ReadbackLimit};
+use bevy_ecs::world::DeferredWorld;
 
-#[derive(Component, Default)]
-struct Terrain {}
-impl Terrain {
-    fn update() {}
-}
+use bevy::{
+    asset::RenderAssetUsages,
+    color::palettes::css::GRAY,
+    prelude::*,
+    render::{
+        extract_resource::ExtractResource,
+        gpu_readback::{Readback, ReadbackComplete},
+        render_resource::{
+            AsBindGroup, Extent3d, ShaderRef, TextureDimension, TextureFormat, TextureUsages,
+        },
+    },
+};
+use bevy_heightmap::{HeightMap, HeightMapPlugin, image::ImageBufferHeightMap};
+use bevy_image::TextureFormatPixelInfo;
+use image::Rgba;
 
 pub const SCALE: f32 = 1024.;
 pub const HEIGHT: f32 = 32.;
@@ -23,50 +27,38 @@ pub fn y_offset(z: f32) -> f32 {
     THETA.tan() * z
 }
 
-#[derive(Resource)]
-pub struct ShaderMaterialHandle(pub Handle<ShaderMaterial>);
-impl FromWorld for ShaderMaterialHandle {
-    fn from_world(world: &mut World) -> Self {
-        Self(world.add_asset(ShaderMaterial::default()))
-    }
-}
-#[derive(Asset, TypePath, AsBindGroup, Clone)]
-pub struct ShaderMaterial {
-    #[uniform(0)]
-    pub color: LinearRgba,
-}
-impl Default for ShaderMaterial {
-    fn default() -> Self {
-        Self {
-            color: Color::WHITE.into(),
-        }
-    }
-}
-impl Material for ShaderMaterial {
-    fn fragment_shader() -> ShaderRef {
-        "shaders/value_function_shader.wgsl".into()
-    }
-    fn alpha_mode(&self) -> AlphaMode {
-        AlphaMode::Blend
-    }
+fn main() {
+    let mut app = App::new();
+    app.add_plugins((
+        DefaultPlugins,
+        HeightMapPlugin,
+        ComputeShaderPlugin::<NoiseComputeShader> {
+            limit: ReadbackLimit::Finite(1),
+            remove_on_complete: false,
+            ..default()
+        },
+    ))
+    .insert_resource(ClearColor(Color::BLACK))
+    .add_systems(Startup, setup)
+    .run();
 }
 
 fn setup(
+    asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut commands: Commands,
-    shader_material: Res<ShaderMaterialHandle>,
+    noise_shader: ResMut<NoiseComputeShader>,
 ) {
-    let h = |_p: Vec2| 0.0;
-    let mesh: Handle<Mesh> = meshes.add(HeightMap {
-        size: UVec2::new(128, 128),
-        h,
-    });
+    let texture: Handle<Image> = asset_server.load("textures/uv.png");
     commands.spawn((
         Name::new("Terrain"),
-        Terrain::default(),
-        Mesh3d(mesh),
-        MeshMaterial3d(shader_material.0.clone()),
+        Mesh3d(noise_shader.generated_mesh.clone()),
+        MeshMaterial3d(materials.add(StandardMaterial {
+            base_color: Color::WHITE,
+            base_color_texture: Some(texture),
+            ..default()
+        })),
         Transform {
             scale: Vec2::splat(SCALE).extend(HEIGHT),
             ..default()
@@ -114,30 +106,65 @@ fn setup(
             .with_rotation(Quat::from_axis_angle(Vec3::X, THETA)),
     ));
     commands.spawn((
-        Transform::from_xyz(0.0, 0.0, default_height)
-            .with_rotation(Quat::from_axis_angle(Vec3::ONE, -PI / 6.)),
         DirectionalLight {
-            color: WHITE.into(),
             illuminance: 4500.,
             shadows_enabled: true,
             ..default()
         },
+        Transform::from_xyz(0.0, 0.0, default_height)
+            .with_rotation(Quat::from_axis_angle(Vec3::ONE, -PI / 6.)),
     ));
 }
 
-fn main() {
-    let mut app = App::new();
-    app.add_plugins((
-        DefaultPlugins,
-        HeightMapPlugin,
-        EguiPlugin {
-            enable_multipass_for_primary_context: true,
-        },
-        WorldInspectorPlugin::default(),
-        MaterialPlugin::<ShaderMaterial>::default(),
-    ))
-    .init_resource::<ShaderMaterialHandle>()
-    .add_systems(Startup, setup)
-    .add_systems(Update, Terrain::update)
-    .run();
+// This is the struct that will be passed to your shader
+#[derive(AsBindGroup, Resource, Clone, Debug, ExtractResource)]
+pub struct NoiseComputeShader {
+    #[storage_texture(0, image_format=Rgba32Float, access=WriteOnly)]
+    texture: Handle<Image>,
+
+    // Mesh computed from the readback texture.
+    generated_mesh: Handle<Mesh>,
+}
+impl ComputeShader for NoiseComputeShader {
+    fn compute_shader() -> ShaderRef {
+        "shaders/value_function_readback.wgsl".into()
+    }
+    fn workgroup_size() -> UVec3 {
+        UVec3::new(1024, 1024, 1)
+    }
+    fn readback(&self) -> Option<Readback> {
+        Some(Readback::texture(self.texture.clone()))
+    }
+    fn on_readback(trigger: Trigger<ReadbackComplete>, mut world: DeferredWorld) {
+        let size = Self::workgroup_size().xy();
+        let heightmap =
+            ImageBufferHeightMap::<Rgba<f32>, Vec<f32>>::from_bytes(size, &trigger.event().0);
+        let mesh_handle = world.resource::<Self>().generated_mesh.clone();
+        let mut meshes = world.resource_mut::<Assets<Mesh>>();
+        let Some(mesh) = meshes.get_mut(&mesh_handle) else {
+            return;
+        };
+        *mesh = heightmap.build_mesh(size);
+    }
+}
+impl FromWorld for NoiseComputeShader {
+    fn from_world(world: &mut World) -> Self {
+        let size = Self::workgroup_size();
+        let mut image = Image::new(
+            Extent3d {
+                width: size.x,
+                height: size.y,
+                depth_or_array_layers: size.z,
+            },
+            TextureDimension::D2,
+            vec![0; TextureFormat::Rgba32Float.pixel_size() * size.x as usize * size.y as usize],
+            TextureFormat::Rgba32Float,
+            RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD,
+        );
+        image.texture_descriptor.usage |= TextureUsages::COPY_SRC | TextureUsages::STORAGE_BINDING;
+        Self {
+            texture: world.add_asset(image),
+            generated_mesh: world.add_asset(Cuboid::default()),
+        }
+    }
 }

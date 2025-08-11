@@ -17,11 +17,8 @@ Create a height map from a value function:
 ```rust
 use bevy::prelude::*;
 use bevy_heightmap::*;
-let heightmap = HeightMap {
-  size: UVec2::new(10, 10),
-  h: |p: Vec2| ((20. * p.x).sin() + (20. * p.y).sin()) / 2.
-};
-let mesh: Mesh = heightmap.into();
+let heightmap = ValueFunctionHeightMap(|p: Vec2| ((20. * p.x).sin() + (20. * p.y).sin()) / 2.);
+let mesh: Mesh = heightmap.build_mesh(UVec2::new(10, 10));
 assert_eq!(mesh.count_vertices(), 4 * 10 * 10);
 ```
 
@@ -46,7 +43,8 @@ cargo run --example image
 
 | bevy | bevy_heightmap |
 | ---- | -------------- |
-| 0.16 | 0.4.1          |   
-| 0.15 | 0.3.0          |   
-| 0.14 | 0.2.0          |   
-| 0.13 | 0.1.0          |   
+| 0.16 | 0.5.0          |
+| 0.16 | 0.4.1          |
+| 0.15 | 0.3.0          |
+| 0.14 | 0.2.0          |
+| 0.13 | 0.1.0          |

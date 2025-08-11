@@ -29,11 +29,10 @@ fn setup(
     mut commands: Commands,
 ) {
     let texture: Handle<Image> = asset_server.load("textures/uv.png");
-    let h = |p: Vec2| ((20. * p.x).sin() + (20. * p.y).sin()) / 2.;
-    let mesh: Handle<Mesh> = meshes.add(HeightMap {
-        size: UVec2::new(128, 128),
-        h,
-    });
+    let mesh: Handle<Mesh> = meshes.add(
+        ValueFunctionHeightMap(|p: Vec2| ((20. * p.x).sin() + (20. * p.y).sin()) / 2.)
+            .build_mesh(UVec2::new(128, 128)),
+    );
     commands.spawn((
         Name::new("Terrain"),
         Terrain::default(),
