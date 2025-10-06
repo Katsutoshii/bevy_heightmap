@@ -17,6 +17,7 @@ bevy = { version = "0.16", default-features = false, features = [
     "bevy_image",
     "bevy_render",
     "bevy_asset",
+    "bevy_log",
     "bevy_state",
 ] }
 
