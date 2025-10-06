@@ -1,12 +1,12 @@
-use bevy_asset::{AssetLoader, LoadContext, io::Reader};
-use bevy_ecs::prelude::{FromWorld, World};
-use bevy_image::{
+use bevy::asset::{AssetLoader, LoadContext, io::Reader};
+use bevy::ecs::prelude::{FromWorld, World};
+use bevy::image::{
     CompressedImageFormats, Image, ImageFormat, ImageFormatSetting, ImageLoaderSettings, ImageType,
     IntoDynamicImageError, TextureError,
 };
-use bevy_log::error;
-use bevy_render::mesh::Mesh;
-use bevy_render::renderer::RenderDevice;
+use bevy::log::error;
+use bevy::render::mesh::Mesh;
+use bevy::render::renderer::RenderDevice;
 
 use thiserror::Error;
 

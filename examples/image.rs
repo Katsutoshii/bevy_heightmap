@@ -4,6 +4,7 @@ use bevy::{
     color::palettes::css::{GRAY, WHITE},
     prelude::*,
 };
+
 use bevy_egui::EguiPlugin;
 use bevy_heightmap::*;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;

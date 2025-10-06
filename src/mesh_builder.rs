@@ -1,5 +1,5 @@
-use bevy_math::{UVec2, Vec2};
-use bevy_render::{
+use bevy::math::{UVec2, Vec2};
+use bevy::render::{
     mesh::{Indices, Mesh},
     render_asset::RenderAssetUsages,
     render_resource::PrimitiveTopology::TriangleList,

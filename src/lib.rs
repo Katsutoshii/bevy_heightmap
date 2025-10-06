@@ -5,13 +5,13 @@ pub mod asset_loader;
 pub mod image;
 pub mod mesh_builder;
 
-use bevy_app::{App, Plugin};
-use bevy_asset::AssetApp;
-use bevy_math::{UVec2, Vec2};
-use bevy_render::mesh::Mesh;
-use mesh_builder::MeshBuilder;
+use bevy::app::{App, Plugin};
+use bevy::asset::AssetApp;
+use bevy::math::{UVec2, Vec2};
+use bevy::render::mesh::Mesh;
 
-pub use image::ImageBufferHeightMap;
+pub use crate::image::ImageBufferHeightMap;
+pub use crate::mesh_builder::MeshBuilder;
 
 /// A Heightmap is anything that provides a 2d value function `h()`.
 pub trait HeightMap: Sized {

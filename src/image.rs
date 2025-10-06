@@ -1,5 +1,7 @@
-use bevy_image::Image;
-use bevy_math::{UVec2, Vec2};
+use bevy::{
+    image::Image,
+    math::{UVec2, Vec2},
+};
 use image::{DynamicImage, ImageBuffer, Pixel, Rgba};
 
 use crate::{HeightMap, asset_loader::HeightMapLoaderError};

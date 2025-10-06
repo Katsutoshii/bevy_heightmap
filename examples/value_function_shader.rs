@@ -1,11 +1,10 @@
 use std::f32::consts::PI;
 
-use bevy_compute_readback::{ComputeShader, ComputeShaderPlugin, ReadbackLimit};
-use bevy_ecs::world::DeferredWorld;
-
 use bevy::{
     asset::RenderAssetUsages,
     color::palettes::css::GRAY,
+    ecs::world::DeferredWorld,
+    image::TextureFormatPixelInfo,
     prelude::*,
     render::{
         extract_resource::ExtractResource,
@@ -15,9 +14,10 @@ use bevy::{
         },
     },
 };
-use bevy_heightmap::{HeightMap, HeightMapPlugin, image::ImageBufferHeightMap};
-use bevy_image::TextureFormatPixelInfo;
 use image::Rgba;
+
+use bevy_compute_readback::{ComputeShader, ComputeShaderPlugin, ReadbackLimit};
+use bevy_heightmap::{HeightMap, HeightMapPlugin, image::ImageBufferHeightMap};
 
 pub const SCALE: f32 = 1024.;
 pub const HEIGHT: f32 = 32.;
