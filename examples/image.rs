@@ -96,9 +96,7 @@ fn main() {
     app.add_plugins((
         DefaultPlugins,
         HeightMapPlugin,
-        EguiPlugin {
-            enable_multipass_for_primary_context: true,
-        },
+        EguiPlugin::default(),
         WorldInspectorPlugin::default(),
     ))
     .add_systems(Startup, setup)

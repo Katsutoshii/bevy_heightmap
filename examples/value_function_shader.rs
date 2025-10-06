@@ -9,10 +9,9 @@ use bevy::{
     render::{
         extract_resource::ExtractResource,
         gpu_readback::{Readback, ReadbackComplete},
-        render_resource::{
-            AsBindGroup, Extent3d, ShaderRef, TextureDimension, TextureFormat, TextureUsages,
-        },
+        render_resource::{AsBindGroup, Extent3d, TextureDimension, TextureFormat, TextureUsages},
     },
+    shader::ShaderRef,
 };
 use image::Rgba;
 
@@ -135,10 +134,10 @@ impl ComputeShader for NoiseComputeShader {
     fn readback(&self) -> Option<Readback> {
         Some(Readback::texture(self.texture.clone()))
     }
-    fn on_readback(trigger: Trigger<ReadbackComplete>, mut world: DeferredWorld) {
+    fn on_readback(trigger: On<ReadbackComplete>, mut world: DeferredWorld) {
         let size = Self::workgroup_size().xy();
         let heightmap =
-            ImageBufferHeightMap::<Rgba<f32>, Vec<f32>>::from_bytes(size, &trigger.event().0);
+            ImageBufferHeightMap::<Rgba<f32>, Vec<f32>>::from_bytes(size, &trigger.event().data);
         let mesh_handle = world.resource::<Self>().generated_mesh.clone();
         let mut meshes = world.resource_mut::<Assets<Mesh>>();
         let Some(mesh) = meshes.get_mut(&mesh_handle) else {
@@ -157,7 +156,12 @@ impl FromWorld for NoiseComputeShader {
                 depth_or_array_layers: size.z,
             },
             TextureDimension::D2,
-            vec![0; TextureFormat::Rgba32Float.pixel_size() * size.x as usize * size.y as usize],
+            vec![
+                0;
+                TextureFormat::Rgba32Float.pixel_size().unwrap()
+                    * size.x as usize
+                    * size.y as usize
+            ],
             TextureFormat::Rgba32Float,
             RenderAssetUsages::RENDER_WORLD | RenderAssetUsages::MAIN_WORLD,
         );

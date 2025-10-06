@@ -5,10 +5,12 @@ pub mod asset_loader;
 pub mod image;
 pub mod mesh_builder;
 
-use bevy::app::{App, Plugin};
-use bevy::asset::AssetApp;
-use bevy::math::{UVec2, Vec2};
-use bevy::render::mesh::Mesh;
+use bevy::{
+    app::{App, Plugin},
+    asset::AssetApp,
+    math::{UVec2, Vec2},
+    mesh::Mesh,
+};
 
 pub use crate::image::ImageBufferHeightMap;
 pub use crate::mesh_builder::MeshBuilder;

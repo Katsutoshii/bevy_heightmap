@@ -1,8 +1,7 @@
-use bevy::math::{UVec2, Vec2};
-use bevy::render::{
-    mesh::{Indices, Mesh},
-    render_asset::RenderAssetUsages,
-    render_resource::PrimitiveTopology::TriangleList,
+use bevy::{
+    asset::RenderAssetUsages,
+    math::{UVec2, Vec2},
+    mesh::{Indices, Mesh, PrimitiveTopology},
 };
 
 use crate::HeightMap;
@@ -74,10 +73,13 @@ impl MeshBuilder {
 
     /// Produce a mesh from the accumulated attributes.
     pub fn build(self) -> Mesh {
-        Mesh::new(TriangleList, RenderAssetUsages::default())
-            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, self.positions)
-            .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, self.uvs)
-            .with_inserted_indices(Indices::U32(self.indices))
-            .with_computed_smooth_normals()
+        Mesh::new(
+            PrimitiveTopology::TriangleList,
+            RenderAssetUsages::default(),
+        )
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, self.positions)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, self.uvs)
+        .with_inserted_indices(Indices::U32(self.indices))
+        .with_computed_area_weighted_normals()
     }
 }

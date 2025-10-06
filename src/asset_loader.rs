@@ -1,12 +1,14 @@
-use bevy::asset::{AssetLoader, LoadContext, io::Reader};
-use bevy::ecs::prelude::{FromWorld, World};
-use bevy::image::{
-    CompressedImageFormats, Image, ImageFormat, ImageFormatSetting, ImageLoaderSettings, ImageType,
-    IntoDynamicImageError, TextureError,
+use bevy::{
+    asset::{AssetLoader, LoadContext, io::Reader},
+    ecs::prelude::{FromWorld, World},
+    image::{
+        CompressedImageFormats, Image, ImageFormat, ImageFormatSetting, ImageLoaderSettings,
+        ImageType, IntoDynamicImageError, TextureError,
+    },
+    log::error,
+    mesh::Mesh,
+    render::renderer::RenderDevice,
 };
-use bevy::log::error;
-use bevy::render::mesh::Mesh;
-use bevy::render::renderer::RenderDevice;
 
 use thiserror::Error;
 
