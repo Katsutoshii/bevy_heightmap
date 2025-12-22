@@ -6,6 +6,8 @@ use image::{DynamicImage, ImageBuffer, Pixel, Rgba};
 
 use crate::{HeightMap, asset_loader::HeightMapLoaderError};
 
+static DEFAULT_SMOOTH_RADIUS: i32 = 3;
+
 pub struct ImageBufferHeightMap<P: Pixel, Container> {
     pub buffer: ImageBuffer<P, Container>,
     pub pixel_scale: Vec2,
@@ -71,14 +73,15 @@ where
 impl HeightMap for ImageBufferHeightMap<Rgba<f32>, Vec<f32>> {
     fn h(&self, p: Vec2) -> f32 {
         let center_xy = (self.pixel_scale * (p + Vec2::ONE / 2.)).as_uvec2();
-        calculate_smoothed_height(&self.buffer, self.bounds, center_xy, 1)
+        calculate_smoothed_height(&self.buffer, self.bounds, center_xy, DEFAULT_SMOOTH_RADIUS)
     }
 }
 
 impl HeightMap for ImageBufferHeightMap<Rgba<u8>, Vec<u8>> {
     fn h(&self, p: Vec2) -> f32 {
         let center_xy = (self.pixel_scale * (p + Vec2::ONE / 2.)).as_uvec2();
-        let smoothed_value = calculate_smoothed_height(&self.buffer, self.bounds, center_xy, 1);
+        let smoothed_value =
+            calculate_smoothed_height(&self.buffer, self.bounds, center_xy, DEFAULT_SMOOTH_RADIUS);
         smoothed_value / 255.0
     }
 }
