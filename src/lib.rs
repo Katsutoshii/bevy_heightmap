@@ -28,15 +28,12 @@ pub trait HeightMap: Sized {
     }
 }
 
-/// Height map from value function;
+/// Height map from value function.
 /// ```
 /// use bevy::prelude::*;
 /// use bevy_heightmap::*;
-/// let heightmap = HeightMap {
-///   size: UVec2::new(10, 10),
-///   h: |p: Vec2| ((20. * p.x).sin() + (20. * p.y).sin()) / 2.
-/// };
-/// let mesh: Mesh = heightmap.into();
+/// let heightmap = ValueFunctionHeightMap(|p: Vec2| ((20. * p.x).sin() + (20. * p.y).sin()) / 2.);
+/// let mesh: Mesh = heightmap.build_mesh(UVec2::new(10, 10));
 /// assert_eq!(mesh.count_vertices(), 10 * 10);
 /// ```
 pub struct ValueFunctionHeightMap<H: Fn(Vec2) -> f32>(pub H);
