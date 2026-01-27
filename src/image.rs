@@ -6,6 +6,8 @@ use image::{DynamicImage, ImageBuffer, Pixel, Rgba};
 
 use crate::{HeightMap, asset_loader::HeightMapLoaderError};
 
+static DEFAULT_SMOOTH_RADIUS: i32 = 3;
+
 pub struct ImageBufferHeightMap<P: Pixel, Container> {
     pub buffer: ImageBuffer<P, Container>,
     pub pixel_scale: Vec2,
@@ -42,16 +44,44 @@ impl ImageBufferHeightMap<Rgba<u8>, Vec<u8>> {
         })
     }
 }
+
+fn calculate_smoothed_height<P>(
+    buffer: &ImageBuffer<P, Vec<P::Subpixel>>,
+    bounds: UVec2,
+    center: UVec2,
+    radius: i32,
+) -> f32
+where
+    P: Pixel,
+    P::Subpixel: Into<f32> + Copy,
+{
+    let mut total_value = 0.0;
+    let mut num_samples = 0;
+
+    for dy in -radius..=radius {
+        for dx in -radius..=radius {
+            let sample_x = (center.x as i32 + dx).clamp(0, bounds.x as i32) as u32;
+            let sample_y = (center.y as i32 + dy).clamp(0, bounds.y as i32) as u32;
+            let pixel_value = buffer.get_pixel(sample_x, bounds.y - sample_y).channels()[0];
+            total_value += pixel_value.into();
+            num_samples += 1;
+        }
+    }
+    total_value / num_samples as f32
+}
+
 impl HeightMap for ImageBufferHeightMap<Rgba<f32>, Vec<f32>> {
     fn h(&self, p: Vec2) -> f32 {
-        let xy = (self.pixel_scale * (p + Vec2::ONE / 2.)).as_uvec2();
-        self.buffer.get_pixel(xy.x, self.bounds.y - xy.y).channels()[0]
+        let center_xy = (self.pixel_scale * (p + Vec2::ONE / 2.)).as_uvec2();
+        calculate_smoothed_height(&self.buffer, self.bounds, center_xy, DEFAULT_SMOOTH_RADIUS)
     }
 }
 
 impl HeightMap for ImageBufferHeightMap<Rgba<u8>, Vec<u8>> {
     fn h(&self, p: Vec2) -> f32 {
-        let xy = (self.pixel_scale * (p + Vec2::ONE / 2.)).as_uvec2();
-        self.buffer.get_pixel(xy.x, self.bounds.y - xy.y).channels()[0] as f32 / 255.
+        let center_xy = (self.pixel_scale * (p + Vec2::ONE / 2.)).as_uvec2();
+        let smoothed_value =
+            calculate_smoothed_height(&self.buffer, self.bounds, center_xy, DEFAULT_SMOOTH_RADIUS);
+        smoothed_value / 255.0
     }
 }
