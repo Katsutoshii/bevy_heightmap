@@ -1,3 +1,5 @@
+//! Example using a value function to generate the mesh.
+//! `cargo run --example value_function_shader`
 use std::f32::consts::PI;
 
 use bevy::{
