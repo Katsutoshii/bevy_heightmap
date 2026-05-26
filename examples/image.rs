@@ -1,3 +1,5 @@
+//! Example using a .png image as a heightmap.
+//! `cargo run --example image --features=bevy/dynamic_linking`
 use std::f32::consts::PI;
 
 use bevy::{

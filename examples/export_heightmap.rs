@@ -1,3 +1,5 @@
+//! Utility to export a heightmap as a .png image.
+//! `cargo run --example export_heightmap --features=bevy/dynamic_linking`
 use std::f32::consts::PI;
 
 use bevy::{

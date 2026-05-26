@@ -1,5 +1,5 @@
 //! Example using a value function to generate the mesh.
-//! `cargo run --example value_function_shader`
+//! `cargo run --example value_function_shader --features=bevy/dynamic_linking`
 use std::f32::consts::PI;
 
 use bevy::{

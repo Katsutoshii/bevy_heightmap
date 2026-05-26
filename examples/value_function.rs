@@ -1,3 +1,5 @@
+//~ Example using a value function to define the heightmap.
+//! `cargo run --example value_function --features=bevy/dynamic_linking`
 use std::f32::consts::PI;
 
 use bevy::{
