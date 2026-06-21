@@ -109,7 +109,7 @@ fn setup(
     commands.spawn((
         DirectionalLight {
             illuminance: 4500.,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(0.0, 0.0, default_height)
@@ -142,7 +142,7 @@ impl ComputeShader for NoiseComputeShader {
             ImageBufferHeightMap::<Rgba<f32>, Vec<f32>>::from_bytes(size, &trigger.event().data);
         let mesh_handle = world.resource::<Self>().generated_mesh.clone();
         let mut meshes = world.resource_mut::<Assets<Mesh>>();
-        let Some(mesh) = meshes.get_mut(&mesh_handle) else {
+        let Some(mut mesh) = meshes.get_mut(&mesh_handle) else {
             return;
         };
         *mesh = heightmap.build_mesh(size);

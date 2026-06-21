@@ -85,7 +85,7 @@ fn setup(
         DirectionalLight {
             color: WHITE.into(),
             illuminance: 4500.,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
         Transform::from_xyz(0.0, 0.0, default_height)

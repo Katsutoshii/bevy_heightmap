@@ -7,6 +7,7 @@ use bevy::{
     prelude::*,
     tasks::IoTaskPool,
 };
+use bevy_egui::EguiPlugin;
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
 use image::{Rgb, RgbImage};
@@ -143,7 +144,7 @@ fn setup(
         DirectionalLight {
             color: WHITE.into(),
             illuminance: 4500.,
-            shadows_enabled: true,
+            shadow_maps_enabled: true,
             ..default()
         },
     ));
@@ -151,8 +152,12 @@ fn setup(
 
 fn main() {
     let mut app = App::new();
-    app.add_plugins((DefaultPlugins, WorldInspectorPlugin::default()))
-        .add_systems(Startup, setup)
-        .add_systems(Update, Terrain::update)
-        .run();
+    app.add_plugins((
+        DefaultPlugins,
+        EguiPlugin::default(),
+        WorldInspectorPlugin::default(),
+    ))
+    .add_systems(Startup, setup)
+    .add_systems(Update, Terrain::update)
+    .run();
 }
